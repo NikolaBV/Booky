@@ -24,7 +24,6 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
     @Override
     @Transactional
     public PurchaseOrder createOrder(PurchaseOrderDTO orderDTO) {
-        // Find the user
         AppUser user = appUserRepository.findById(orderDTO.getAppUser().getId())
                 .orElseThrow(() -> new EntityNotFoundException("User not found with id: " + orderDTO.getAppUser().getId()));
 
@@ -50,7 +49,6 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
     @Override
     @Transactional
     public PurchaseOrder updateOrder(Long id, PurchaseOrderDTO orderDTO) {
-        // Find existing order
         PurchaseOrder existingOrder = purchaseOrderRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Order not found with id: " + id));
 

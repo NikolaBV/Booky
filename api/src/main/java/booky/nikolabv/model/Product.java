@@ -37,9 +37,6 @@ public class Product {
     
     private Integer stockQuantity;
     
-    @Column(length = 50)
-    private String sku;
-    
     @Column(columnDefinition = "TEXT")
     private String description;
 }
