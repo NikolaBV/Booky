@@ -41,7 +41,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "../../components/ui/alert-dialog";
-import { ThemeProvider } from "../../components/theme/ThemeProvider";
 
 export default function Categories() {
   const queryClient = useQueryClient();
@@ -62,8 +61,7 @@ export default function Categories() {
   });
 
   const createMutation = useMutation({
-    mutationFn: (category: Partial<Category>) =>
-      agent.categories.create(category),
+    mutationFn: (category: Category) => agent.categories.create(category),
     onSuccess: () => {
       setIsCreateDialogOpen(false);
       queryClient.invalidateQueries({ queryKey: ["categoriesQuery"] });
@@ -78,7 +76,7 @@ export default function Categories() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: (category: Partial<Category>) =>
+    mutationFn: (category: Category) =>
       agent.categories.update(category.id!, category),
     onSuccess: () => {
       setIsUpdateDialogOpen(false);

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import agent from "../../api/agent";
-import type { Product, Category } from "../../api/models";
+import type { Product, Category, ProductDTO } from "../../api/models";
 import {
   Table,
   TableBody,
@@ -53,7 +53,6 @@ export default function Products() {
   const queryClient = useQueryClient();
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isUpdateDialogOpen, setIsUpdateDialogOpen] = useState(false);
-  const [currentProduct, setCurrentProduct] = useState<Product | null>(null);
   const [formData, setFormData] = useState({
     id: 0,
     name: "",
@@ -112,7 +111,6 @@ export default function Products() {
   };
 
   const handleUpdateClick = (product: Product) => {
-    setCurrentProduct(product);
     setFormData({
       id: product.id,
       name: product.name,
@@ -142,19 +140,9 @@ export default function Products() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    const selectedCategory = categories.find(
-      (c) => c.id === formData.categoryId
-    );
-
-    const productData = {
-      id: formData.id,
+    const productData: ProductDTO = {
       name: formData.name,
-      category: selectedCategory
-        ? {
-            id: formData.categoryId,
-            name: selectedCategory.name,
-          }
-        : undefined,
+      categoryId: formData.categoryId,
       price: formData.price,
       stockQuantity: formData.stockQuantity,
       description: formData.description,
@@ -255,7 +243,6 @@ export default function Products() {
           </Table>
         </div>
 
-        {/* Create Dialog */}
         <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
           <DialogContent className="sm:max-w-md">
             <DialogHeader>

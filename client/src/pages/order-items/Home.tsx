@@ -1,7 +1,12 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import agent from "../../api/agent";
-import type { OrderItem, PurchaseOrder, Product } from "../../api/models";
+import type {
+  OrderItem,
+  PurchaseOrder,
+  Product,
+  OrderItemDTO,
+} from "../../api/models";
 import {
   Table,
   TableBody,
@@ -48,15 +53,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../../components/ui/select";
-import { ThemeProvider } from "../../components/theme/ThemeProvider";
 
 export default function OrderItemsPage() {
   const queryClient = useQueryClient();
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isUpdateDialogOpen, setIsUpdateDialogOpen] = useState(false);
-  const [currentOrderItem, setCurrentOrderItem] = useState<OrderItem | null>(
-    null
-  );
   const [formData, setFormData] = useState({
     id: 0,
     orderId: 0,
@@ -122,7 +123,6 @@ export default function OrderItemsPage() {
   };
 
   const handleUpdateClick = (orderItem: OrderItem) => {
-    setCurrentOrderItem(orderItem);
     setFormData({
       id: orderItem.id,
       orderId: orderItem.order.id,
@@ -160,27 +160,9 @@ export default function OrderItemsPage() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    const selectedOrder = orders.find((o) => o.id === formData.orderId);
-    const selectedProduct = products.find((p) => p.id === formData.productId);
-
-    const orderItemData = {
-      id: formData.id,
-      order: selectedOrder
-        ? {
-            id: formData.orderId,
-            appUser: selectedOrder.appUser,
-            orderDate: selectedOrder.orderDate,
-            totalAmount: selectedOrder.totalAmount,
-          }
-        : undefined,
-      product: selectedProduct
-        ? {
-            id: formData.productId,
-            name: selectedProduct.name,
-            category: selectedProduct.category,
-            price: selectedProduct.price,
-          }
-        : undefined,
+    const orderItemData: OrderItemDTO = {
+      orderId: formData.orderId,
+      productId: formData.productId,
       quantity: formData.quantity,
       priceAtPurchase: formData.priceAtPurchase,
     };

@@ -4,7 +4,7 @@ import type {
   Category,
   Product,
   OrderItem,
-  CreateOrderModel,
+  PurchaseOrderDTO,
 } from "./models";
 
 axios.defaults.baseURL = import.meta.env.VITE_API_URL;
@@ -31,7 +31,7 @@ const orders = {
   list: () => {
     return requests.get<PurchaseOrder[]>("/orders");
   },
-  create: (order: CreateOrderModel) => {
+  create: (order: PurchaseOrderDTO) => {
     return requests.post<PurchaseOrder>("/orders", order);
   },
   delete: (id: number) => requests.delete(`/orders/${id}`),
@@ -42,9 +42,9 @@ const orders = {
 const categories = {
   list: () => requests.get<Category[]>("/category"),
   details: (id: number) => requests.get<Category>(`/category/${id}`),
-  create: (category: Partial<Category>) =>
+  create: (category: Category) =>
     requests.post<Category>("/category", category),
-  update: (id: number, category: Partial<Category>) =>
+  update: (id: number, category: Category) =>
     requests.put<Category>(`/category/${id}`, category),
   delete: (id: number) => requests.delete(`/category/${id}`),
 };

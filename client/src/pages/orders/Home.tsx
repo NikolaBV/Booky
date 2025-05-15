@@ -4,7 +4,7 @@ import agent from "../../api/agent";
 import type {
   PurchaseOrder,
   AppUser,
-  CreateOrderModel,
+  PurchaseOrderDTO,
 } from "../../api/models";
 import {
   Table,
@@ -68,7 +68,7 @@ export default function Orders() {
   });
 
   const createMutation = useMutation({
-    mutationFn: (order: CreateOrderModel) => agent.orders.create(order),
+    mutationFn: (order: PurchaseOrderDTO) => agent.orders.create(order),
     onSuccess: () => {
       setIsCreateDialogOpen(false);
       queryClient.invalidateQueries({ queryKey: ["ordersQuery"] });
@@ -125,12 +125,8 @@ export default function Orders() {
 
   const handleCreateSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const newOrder: CreateOrderModel = {
-      appUser: {
-        id: 0, // Will be assigned by backend
-        name: formData.userName,
-        email: formData.userEmail,
-      },
+    const newOrder: PurchaseOrderDTO = {
+      appUser: { id: 1 }, //TODO HARDOCDED ID until authentication
       orderDate: new Date(formData.orderDate),
       totalAmount: parseFloat(formData.totalAmount) || 0,
     };
@@ -255,33 +251,6 @@ export default function Orders() {
             </DialogHeader>
             <form onSubmit={handleCreateSubmit}>
               <div className="grid gap-4 py-4">
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="userName" className="text-right">
-                    Customer Name
-                  </Label>
-                  <Input
-                    id="userName"
-                    name="userName"
-                    value={formData.userName}
-                    onChange={handleInputChange}
-                    className="col-span-3"
-                    required
-                  />
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="userEmail" className="text-right">
-                    Email
-                  </Label>
-                  <Input
-                    id="userEmail"
-                    name="userEmail"
-                    type="email"
-                    value={formData.userEmail}
-                    onChange={handleInputChange}
-                    className="col-span-3"
-                    required
-                  />
-                </div>
                 <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="orderDate" className="text-right">
                     Order Date

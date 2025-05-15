@@ -1,7 +1,9 @@
+import Home from "./Home";
+
 function App() {
   return (
     <>
-      <h1>Home</h1>
+      <Home></Home>
     </>
   );
 }
