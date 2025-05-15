@@ -49,7 +49,7 @@ import {
   SelectValue,
 } from "../../components/ui/select";
 
-export default function ProductsPage() {
+export default function Products() {
   const queryClient = useQueryClient();
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isUpdateDialogOpen, setIsUpdateDialogOpen] = useState(false);

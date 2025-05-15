@@ -1,8 +1,9 @@
-import Home from "./home/Home";
-import { ThemeProvider } from "../components/theme/ThemeProvider";
-
 function App() {
-  return <Home />;
+  return (
+    <>
+      <h1>Home</h1>
+    </>
+  );
 }
 
 export default App;

@@ -46,7 +46,7 @@ import {
   AlertDialogTitle,
 } from "../../components/ui/alert-dialog";
 
-export default function Home() {
+export default function Orders() {
   const queryClient = useQueryClient();
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isUpdateDialogOpen, setIsUpdateDialogOpen] = useState(false);
