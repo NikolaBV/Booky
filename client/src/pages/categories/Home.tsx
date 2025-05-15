@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import agent from "../../api/agent";
-import type { Product, Category } from "../../api/models";
+import type { Category } from "../../api/models";
 import {
   Table,
   TableBody,
@@ -41,61 +41,48 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "../../components/ui/alert-dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "../../components/ui/select";
+import { ThemeProvider } from "../../components/theme/ThemeProvider";
 
-export default function ProductsPage() {
+export default function Categories() {
   const queryClient = useQueryClient();
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isUpdateDialogOpen, setIsUpdateDialogOpen] = useState(false);
-  const [currentProduct, setCurrentProduct] = useState<Product | null>(null);
+  const [currentCategory, setCurrentCategory] = useState<Category | null>(null);
   const [formData, setFormData] = useState({
     id: 0,
     name: "",
-    categoryId: 0,
-    price: 0,
-    stockQuantity: 0,
     description: "",
   });
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [productToDelete, setProductToDelete] = useState<number | null>(null);
+  const [categoryToDelete, setCategoryToDelete] = useState<number | null>(null);
 
-  const { data: products = [], isLoading: productsLoading } = useQuery({
-    queryKey: ["productsQuery"],
-    queryFn: () => agent.products.list(),
-  });
-
-  const { data: categories = [], isLoading: categoriesLoading } = useQuery({
+  const { data: categories = [], isLoading } = useQuery({
     queryKey: ["categoriesQuery"],
     queryFn: () => agent.categories.list(),
   });
 
   const createMutation = useMutation({
-    mutationFn: (product: Partial<Product>) => agent.products.create(product),
+    mutationFn: (category: Partial<Category>) =>
+      agent.categories.create(category),
     onSuccess: () => {
       setIsCreateDialogOpen(false);
-      queryClient.invalidateQueries({ queryKey: ["productsQuery"] });
+      queryClient.invalidateQueries({ queryKey: ["categoriesQuery"] });
     },
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (productId: number) => agent.products.delete(productId),
+    mutationFn: (categoryId: number) => agent.categories.delete(categoryId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["productsQuery"] });
+      queryClient.invalidateQueries({ queryKey: ["categoriesQuery"] });
     },
   });
 
   const updateMutation = useMutation({
-    mutationFn: (product: Partial<Product>) =>
-      agent.products.update(product.id!, product),
+    mutationFn: (category: Partial<Category>) =>
+      agent.categories.update(category.id!, category),
     onSuccess: () => {
       setIsUpdateDialogOpen(false);
-      queryClient.invalidateQueries({ queryKey: ["productsQuery"] });
+      queryClient.invalidateQueries({ queryKey: ["categoriesQuery"] });
     },
   });
 
@@ -103,23 +90,17 @@ export default function ProductsPage() {
     setFormData({
       id: 0,
       name: "",
-      categoryId: categories.length > 0 ? categories[0].id : 0,
-      price: 0,
-      stockQuantity: 0,
       description: "",
     });
     setIsCreateDialogOpen(true);
   };
 
-  const handleUpdateClick = (product: Product) => {
-    setCurrentProduct(product);
+  const handleUpdateClick = (category: Category) => {
+    setCurrentCategory(category);
     setFormData({
-      id: product.id,
-      name: product.name,
-      categoryId: product.category.id,
-      price: product.price,
-      stockQuantity: product.stockQuantity || 0,
-      description: product.description || "",
+      id: category.id,
+      name: category.name,
+      description: category.description || "",
     });
     setIsUpdateDialogOpen(true);
   };
@@ -132,58 +113,32 @@ export default function ProductsPage() {
     });
   };
 
-  const handleSelectChange = (name: string, value: string) => {
-    setFormData({
-      ...formData,
-      [name]: Number(value),
-    });
-  };
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-
-    const selectedCategory = categories.find(
-      (c) => c.id === formData.categoryId
-    );
-
-    const productData = {
-      id: formData.id,
-      name: formData.name,
-      category: selectedCategory
-        ? {
-            id: formData.categoryId,
-            name: selectedCategory.name,
-          }
-        : undefined,
-      price: formData.price,
-      stockQuantity: formData.stockQuantity,
-      description: formData.description,
-    };
-
     if (formData.id === 0) {
-      createMutation.mutate(productData);
+      createMutation.mutate(formData);
     } else {
-      updateMutation.mutate(productData);
+      updateMutation.mutate(formData);
     }
   };
 
-  const handleDeleteClick = (productId: number) => {
-    setProductToDelete(productId);
+  const handleDeleteClick = (categoryId: number) => {
+    setCategoryToDelete(categoryId);
     setIsDeleteDialogOpen(true);
   };
 
   const confirmDelete = () => {
-    if (productToDelete !== null) {
-      deleteMutation.mutate(productToDelete);
-      setProductToDelete(null);
+    if (categoryToDelete !== null) {
+      deleteMutation.mutate(categoryToDelete);
+      setCategoryToDelete(null);
       setIsDeleteDialogOpen(false);
     }
   };
 
-  if (productsLoading || categoriesLoading) {
+  if (isLoading) {
     return (
       <div className="flex justify-center items-center min-h-screen">
-        Loading products...
+        Loading categories...
       </div>
     );
   }
@@ -192,38 +147,34 @@ export default function ProductsPage() {
     <div className="min-h-screen bg-background text-foreground p-6">
       <div className="container mx-auto">
         <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold">Products Management</h1>
+          <h1 className="text-2xl font-bold">Categories Management</h1>
           <Button
             variant="outline"
             className="flex gap-2"
             onClick={handleCreateClick}
           >
             <PlusCircle className="h-4 w-4" />
-            Add New Product
+            Add New Category
           </Button>
         </div>
 
         <div className="rounded-md border">
           <Table>
-            <TableCaption>A list of your products.</TableCaption>
+            <TableCaption>A list of your categories.</TableCaption>
             <TableHeader>
               <TableRow>
                 <TableHead>ID</TableHead>
                 <TableHead>Name</TableHead>
-                <TableHead>Category</TableHead>
-                <TableHead>Price</TableHead>
-                <TableHead>Stock</TableHead>
+                <TableHead>Description</TableHead>
                 <TableHead className="w-16">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {products.map((product: Product) => (
-                <TableRow key={product.id}>
-                  <TableCell className="font-medium">{product.id}</TableCell>
-                  <TableCell>{product.name}</TableCell>
-                  <TableCell>{product.category.name}</TableCell>
-                  <TableCell>${product.price.toFixed(2)}</TableCell>
-                  <TableCell>{product.stockQuantity || 0}</TableCell>
+              {categories.map((category: Category) => (
+                <TableRow key={category.id}>
+                  <TableCell className="font-medium">{category.id}</TableCell>
+                  <TableCell>{category.name}</TableCell>
+                  <TableCell>{category.description || "-"}</TableCell>
                   <TableCell>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
@@ -236,13 +187,13 @@ export default function ProductsPage() {
                         <DropdownMenuLabel>Actions</DropdownMenuLabel>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
-                          onClick={() => handleUpdateClick(product)}
+                          onClick={() => handleUpdateClick(category)}
                         >
                           Edit
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           className="text-red-600 focus:text-red-600"
-                          onClick={() => handleDeleteClick(product.id)}
+                          onClick={() => handleDeleteClick(category.id)}
                         >
                           Delete
                         </DropdownMenuItem>
@@ -259,9 +210,9 @@ export default function ProductsPage() {
         <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
-              <DialogTitle>Create Product</DialogTitle>
+              <DialogTitle>Create Category</DialogTitle>
               <DialogDescription>
-                Add a new product to your store.
+                Add a new category to your store.
               </DialogDescription>
             </DialogHeader>
             <form onSubmit={handleSubmit}>
@@ -277,60 +228,6 @@ export default function ProductsPage() {
                     onChange={handleInputChange}
                     className="col-span-3"
                     required
-                  />
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="categoryId" className="text-right">
-                    Category
-                  </Label>
-                  <Select
-                    name="categoryId"
-                    value={formData.categoryId.toString()}
-                    onValueChange={(value: string) =>
-                      handleSelectChange("categoryId", value)
-                    }
-                  >
-                    <SelectTrigger className="col-span-3">
-                      <SelectValue placeholder="Select a category" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {categories.map((category: Category) => (
-                        <SelectItem
-                          key={category.id}
-                          value={category.id.toString()}
-                        >
-                          {category.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="price" className="text-right">
-                    Price
-                  </Label>
-                  <Input
-                    id="price"
-                    name="price"
-                    type="number"
-                    step="0.01"
-                    value={formData.price}
-                    onChange={handleInputChange}
-                    className="col-span-3"
-                    required
-                  />
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="stockQuantity" className="text-right">
-                    Stock Quantity
-                  </Label>
-                  <Input
-                    id="stockQuantity"
-                    name="stockQuantity"
-                    type="number"
-                    value={formData.stockQuantity}
-                    onChange={handleInputChange}
-                    className="col-span-3"
                   />
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
@@ -364,9 +261,9 @@ export default function ProductsPage() {
         <Dialog open={isUpdateDialogOpen} onOpenChange={setIsUpdateDialogOpen}>
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
-              <DialogTitle>Update Product</DialogTitle>
+              <DialogTitle>Update Category</DialogTitle>
               <DialogDescription>
-                Make changes to the product below.
+                Make changes to the category below.
               </DialogDescription>
             </DialogHeader>
             <form onSubmit={handleSubmit}>
@@ -382,60 +279,6 @@ export default function ProductsPage() {
                     onChange={handleInputChange}
                     className="col-span-3"
                     required
-                  />
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="categoryId" className="text-right">
-                    Category
-                  </Label>
-                  <Select
-                    name="categoryId"
-                    value={formData.categoryId.toString()}
-                    onValueChange={(value: string) =>
-                      handleSelectChange("categoryId", value)
-                    }
-                  >
-                    <SelectTrigger className="col-span-3">
-                      <SelectValue placeholder="Select a category" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {categories.map((category: Category) => (
-                        <SelectItem
-                          key={category.id}
-                          value={category.id.toString()}
-                        >
-                          {category.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="price" className="text-right">
-                    Price
-                  </Label>
-                  <Input
-                    id="price"
-                    name="price"
-                    type="number"
-                    step="0.01"
-                    value={formData.price}
-                    onChange={handleInputChange}
-                    className="col-span-3"
-                    required
-                  />
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="stockQuantity" className="text-right">
-                    Stock Quantity
-                  </Label>
-                  <Input
-                    id="stockQuantity"
-                    name="stockQuantity"
-                    type="number"
-                    value={formData.stockQuantity}
-                    onChange={handleInputChange}
-                    className="col-span-3"
                   />
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
@@ -473,10 +316,10 @@ export default function ProductsPage() {
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>
-                Are you sure you want to delete this product?
+                Are you sure you want to delete this category?
               </AlertDialogTitle>
               <AlertDialogDescription>
-                This action cannot be undone. The product will be permanently
+                This action cannot be undone. The category will be permanently
                 removed.
               </AlertDialogDescription>
             </AlertDialogHeader>

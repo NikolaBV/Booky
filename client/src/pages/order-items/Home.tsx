@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import agent from "../../api/agent";
-import type { Product, Category } from "../../api/models";
+import type { OrderItem, PurchaseOrder, Product } from "../../api/models";
 import {
   Table,
   TableBody,
@@ -48,78 +48,87 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../../components/ui/select";
+import { ThemeProvider } from "../../components/theme/ThemeProvider";
 
-export default function ProductsPage() {
+export default function OrderItemsPage() {
   const queryClient = useQueryClient();
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isUpdateDialogOpen, setIsUpdateDialogOpen] = useState(false);
-  const [currentProduct, setCurrentProduct] = useState<Product | null>(null);
+  const [currentOrderItem, setCurrentOrderItem] = useState<OrderItem | null>(
+    null
+  );
   const [formData, setFormData] = useState({
     id: 0,
-    name: "",
-    categoryId: 0,
-    price: 0,
-    stockQuantity: 0,
-    description: "",
+    orderId: 0,
+    productId: 0,
+    quantity: 1,
+    priceAtPurchase: 0,
   });
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [productToDelete, setProductToDelete] = useState<number | null>(null);
+  const [orderItemToDelete, setOrderItemToDelete] = useState<number | null>(
+    null
+  );
+
+  const { data: orderItems = [], isLoading: orderItemsLoading } = useQuery({
+    queryKey: ["orderItemsQuery"],
+    queryFn: () => agent.orderItems.list(),
+  });
+
+  const { data: orders = [], isLoading: ordersLoading } = useQuery({
+    queryKey: ["ordersQuery"],
+    queryFn: () => agent.orders.list(),
+  });
 
   const { data: products = [], isLoading: productsLoading } = useQuery({
     queryKey: ["productsQuery"],
     queryFn: () => agent.products.list(),
   });
 
-  const { data: categories = [], isLoading: categoriesLoading } = useQuery({
-    queryKey: ["categoriesQuery"],
-    queryFn: () => agent.categories.list(),
-  });
-
   const createMutation = useMutation({
-    mutationFn: (product: Partial<Product>) => agent.products.create(product),
+    mutationFn: (orderItem: Partial<OrderItem>) =>
+      agent.orderItems.create(orderItem),
     onSuccess: () => {
       setIsCreateDialogOpen(false);
-      queryClient.invalidateQueries({ queryKey: ["productsQuery"] });
+      queryClient.invalidateQueries({ queryKey: ["orderItemsQuery"] });
     },
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (productId: number) => agent.products.delete(productId),
+    mutationFn: (orderItemId: number) => agent.orderItems.delete(orderItemId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["productsQuery"] });
+      queryClient.invalidateQueries({ queryKey: ["orderItemsQuery"] });
     },
   });
 
   const updateMutation = useMutation({
-    mutationFn: (product: Partial<Product>) =>
-      agent.products.update(product.id!, product),
+    mutationFn: (orderItem: Partial<OrderItem>) =>
+      agent.orderItems.update(orderItem.id!, orderItem),
     onSuccess: () => {
       setIsUpdateDialogOpen(false);
-      queryClient.invalidateQueries({ queryKey: ["productsQuery"] });
+      queryClient.invalidateQueries({ queryKey: ["orderItemsQuery"] });
     },
   });
 
   const handleCreateClick = () => {
+    const defaultProduct = products.length > 0 ? products[0] : null;
     setFormData({
       id: 0,
-      name: "",
-      categoryId: categories.length > 0 ? categories[0].id : 0,
-      price: 0,
-      stockQuantity: 0,
-      description: "",
+      orderId: orders.length > 0 ? orders[0].id : 0,
+      productId: defaultProduct?.id || 0,
+      quantity: 1,
+      priceAtPurchase: defaultProduct?.price || 0,
     });
     setIsCreateDialogOpen(true);
   };
 
-  const handleUpdateClick = (product: Product) => {
-    setCurrentProduct(product);
+  const handleUpdateClick = (orderItem: OrderItem) => {
+    setCurrentOrderItem(orderItem);
     setFormData({
-      id: product.id,
-      name: product.name,
-      categoryId: product.category.id,
-      price: product.price,
-      stockQuantity: product.stockQuantity || 0,
-      description: product.description || "",
+      id: orderItem.id,
+      orderId: orderItem.order.id,
+      productId: orderItem.product.id,
+      quantity: orderItem.quantity,
+      priceAtPurchase: orderItem.priceAtPurchase,
     });
     setIsUpdateDialogOpen(true);
   };
@@ -128,62 +137,78 @@ export default function ProductsPage() {
     const { name, value } = e.target;
     setFormData({
       ...formData,
-      [name]: value,
+      [name]: Number(value),
     });
   };
 
   const handleSelectChange = (name: string, value: string) => {
-    setFormData({
+    const numValue = Number(value);
+    const updatedData = {
       ...formData,
-      [name]: Number(value),
-    });
+      [name]: numValue,
+    };
+
+    // Update price when product changes
+    if (name === "productId") {
+      const selectedProduct = products.find((p) => p.id === numValue);
+      updatedData.priceAtPurchase = selectedProduct?.price || 0;
+    }
+
+    setFormData(updatedData);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    const selectedCategory = categories.find(
-      (c) => c.id === formData.categoryId
-    );
+    const selectedOrder = orders.find((o) => o.id === formData.orderId);
+    const selectedProduct = products.find((p) => p.id === formData.productId);
 
-    const productData = {
+    const orderItemData = {
       id: formData.id,
-      name: formData.name,
-      category: selectedCategory
+      order: selectedOrder
         ? {
-            id: formData.categoryId,
-            name: selectedCategory.name,
+            id: formData.orderId,
+            appUser: selectedOrder.appUser,
+            orderDate: selectedOrder.orderDate,
+            totalAmount: selectedOrder.totalAmount,
           }
         : undefined,
-      price: formData.price,
-      stockQuantity: formData.stockQuantity,
-      description: formData.description,
+      product: selectedProduct
+        ? {
+            id: formData.productId,
+            name: selectedProduct.name,
+            category: selectedProduct.category,
+            price: selectedProduct.price,
+          }
+        : undefined,
+      quantity: formData.quantity,
+      priceAtPurchase: formData.priceAtPurchase,
     };
 
     if (formData.id === 0) {
-      createMutation.mutate(productData);
+      createMutation.mutate(orderItemData);
     } else {
-      updateMutation.mutate(productData);
+      updateMutation.mutate(orderItemData);
     }
   };
 
-  const handleDeleteClick = (productId: number) => {
-    setProductToDelete(productId);
+  const handleDeleteClick = (orderItemId: number) => {
+    setOrderItemToDelete(orderItemId);
     setIsDeleteDialogOpen(true);
   };
 
   const confirmDelete = () => {
-    if (productToDelete !== null) {
-      deleteMutation.mutate(productToDelete);
-      setProductToDelete(null);
+    if (orderItemToDelete !== null) {
+      deleteMutation.mutate(orderItemToDelete);
+      setOrderItemToDelete(null);
       setIsDeleteDialogOpen(false);
     }
   };
 
-  if (productsLoading || categoriesLoading) {
+  if (orderItemsLoading || ordersLoading || productsLoading) {
     return (
       <div className="flex justify-center items-center min-h-screen">
-        Loading products...
+        Loading order items...
       </div>
     );
   }
@@ -192,38 +217,45 @@ export default function ProductsPage() {
     <div className="min-h-screen bg-background text-foreground p-6">
       <div className="container mx-auto">
         <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold">Products Management</h1>
+          <h1 className="text-2xl font-bold">Order Items Management</h1>
           <Button
             variant="outline"
             className="flex gap-2"
             onClick={handleCreateClick}
           >
             <PlusCircle className="h-4 w-4" />
-            Add New Product
+            Add New Order Item
           </Button>
         </div>
 
         <div className="rounded-md border">
           <Table>
-            <TableCaption>A list of your products.</TableCaption>
+            <TableCaption>A list of your order items.</TableCaption>
             <TableHeader>
               <TableRow>
                 <TableHead>ID</TableHead>
-                <TableHead>Name</TableHead>
-                <TableHead>Category</TableHead>
-                <TableHead>Price</TableHead>
-                <TableHead>Stock</TableHead>
+                <TableHead>Order ID</TableHead>
+                <TableHead>Product</TableHead>
+                <TableHead>Quantity</TableHead>
+                <TableHead>Unit Price</TableHead>
+                <TableHead>Total Price</TableHead>
                 <TableHead className="w-16">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {products.map((product: Product) => (
-                <TableRow key={product.id}>
-                  <TableCell className="font-medium">{product.id}</TableCell>
-                  <TableCell>{product.name}</TableCell>
-                  <TableCell>{product.category.name}</TableCell>
-                  <TableCell>${product.price.toFixed(2)}</TableCell>
-                  <TableCell>{product.stockQuantity || 0}</TableCell>
+              {orderItems.map((orderItem: OrderItem) => (
+                <TableRow key={orderItem.id}>
+                  <TableCell className="font-medium">{orderItem.id}</TableCell>
+                  <TableCell>#{orderItem.order.id}</TableCell>
+                  <TableCell>{orderItem.product.name}</TableCell>
+                  <TableCell>{orderItem.quantity}</TableCell>
+                  <TableCell>${orderItem.priceAtPurchase.toFixed(2)}</TableCell>
+                  <TableCell>
+                    $
+                    {(orderItem.quantity * orderItem.priceAtPurchase).toFixed(
+                      2
+                    )}
+                  </TableCell>
                   <TableCell>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
@@ -236,13 +268,13 @@ export default function ProductsPage() {
                         <DropdownMenuLabel>Actions</DropdownMenuLabel>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
-                          onClick={() => handleUpdateClick(product)}
+                          onClick={() => handleUpdateClick(orderItem)}
                         >
                           Edit
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           className="text-red-600 focus:text-red-600"
-                          onClick={() => handleDeleteClick(product.id)}
+                          onClick={() => handleDeleteClick(orderItem.id)}
                         >
                           Delete
                         </DropdownMenuItem>
@@ -259,90 +291,88 @@ export default function ProductsPage() {
         <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
-              <DialogTitle>Create Product</DialogTitle>
-              <DialogDescription>
-                Add a new product to your store.
-              </DialogDescription>
+              <DialogTitle>Create Order Item</DialogTitle>
+              <DialogDescription>Add a new item to an order.</DialogDescription>
             </DialogHeader>
             <form onSubmit={handleSubmit}>
               <div className="grid gap-4 py-4">
                 <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="name" className="text-right">
-                    Name
-                  </Label>
-                  <Input
-                    id="name"
-                    name="name"
-                    value={formData.name}
-                    onChange={handleInputChange}
-                    className="col-span-3"
-                    required
-                  />
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="categoryId" className="text-right">
-                    Category
+                  <Label htmlFor="orderId" className="text-right">
+                    Order
                   </Label>
                   <Select
-                    name="categoryId"
-                    value={formData.categoryId.toString()}
-                    onValueChange={(value: string) =>
-                      handleSelectChange("categoryId", value)
+                    name="orderId"
+                    value={formData.orderId.toString()}
+                    onValueChange={(value) =>
+                      handleSelectChange("orderId", value)
                     }
                   >
                     <SelectTrigger className="col-span-3">
-                      <SelectValue placeholder="Select a category" />
+                      <SelectValue placeholder="Select an order" />
                     </SelectTrigger>
                     <SelectContent>
-                      {categories.map((category: Category) => (
-                        <SelectItem
-                          key={category.id}
-                          value={category.id.toString()}
-                        >
-                          {category.name}
+                      {orders.map((order: PurchaseOrder) => (
+                        <SelectItem key={order.id} value={order.id.toString()}>
+                          Order #{order.id} - {order.appUser.name}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="price" className="text-right">
-                    Price
+                  <Label htmlFor="productId" className="text-right">
+                    Product
+                  </Label>
+                  <Select
+                    name="productId"
+                    value={formData.productId.toString()}
+                    onValueChange={(value) =>
+                      handleSelectChange("productId", value)
+                    }
+                  >
+                    <SelectTrigger className="col-span-3">
+                      <SelectValue placeholder="Select a product" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {products.map((product: Product) => (
+                        <SelectItem
+                          key={product.id}
+                          value={product.id.toString()}
+                        >
+                          {product.name} (${product.price.toFixed(2)})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="quantity" className="text-right">
+                    Quantity
                   </Label>
                   <Input
-                    id="price"
-                    name="price"
+                    id="quantity"
+                    name="quantity"
                     type="number"
-                    step="0.01"
-                    value={formData.price}
+                    min="1"
+                    value={formData.quantity}
                     onChange={handleInputChange}
                     className="col-span-3"
                     required
                   />
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="stockQuantity" className="text-right">
-                    Stock Quantity
+                  <Label htmlFor="priceAtPurchase" className="text-right">
+                    Unit Price
                   </Label>
                   <Input
-                    id="stockQuantity"
-                    name="stockQuantity"
+                    id="priceAtPurchase"
+                    name="priceAtPurchase"
                     type="number"
-                    value={formData.stockQuantity}
+                    step="0.01"
+                    value={formData.priceAtPurchase}
                     onChange={handleInputChange}
                     className="col-span-3"
-                  />
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="description" className="text-right">
-                    Description
-                  </Label>
-                  <Input
-                    id="description"
-                    name="description"
-                    value={formData.description}
-                    onChange={handleInputChange}
-                    className="col-span-3"
+                    required
                   />
                 </div>
               </div>
@@ -364,90 +394,90 @@ export default function ProductsPage() {
         <Dialog open={isUpdateDialogOpen} onOpenChange={setIsUpdateDialogOpen}>
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
-              <DialogTitle>Update Product</DialogTitle>
+              <DialogTitle>Update Order Item</DialogTitle>
               <DialogDescription>
-                Make changes to the product below.
+                Make changes to the order item below.
               </DialogDescription>
             </DialogHeader>
             <form onSubmit={handleSubmit}>
               <div className="grid gap-4 py-4">
                 <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="name" className="text-right">
-                    Name
-                  </Label>
-                  <Input
-                    id="name"
-                    name="name"
-                    value={formData.name}
-                    onChange={handleInputChange}
-                    className="col-span-3"
-                    required
-                  />
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="categoryId" className="text-right">
-                    Category
+                  <Label htmlFor="orderId" className="text-right">
+                    Order
                   </Label>
                   <Select
-                    name="categoryId"
-                    value={formData.categoryId.toString()}
-                    onValueChange={(value: string) =>
-                      handleSelectChange("categoryId", value)
+                    name="orderId"
+                    value={formData.orderId.toString()}
+                    onValueChange={(value) =>
+                      handleSelectChange("orderId", value)
                     }
                   >
                     <SelectTrigger className="col-span-3">
-                      <SelectValue placeholder="Select a category" />
+                      <SelectValue placeholder="Select an order" />
                     </SelectTrigger>
                     <SelectContent>
-                      {categories.map((category: Category) => (
-                        <SelectItem
-                          key={category.id}
-                          value={category.id.toString()}
-                        >
-                          {category.name}
+                      {orders.map((order: PurchaseOrder) => (
+                        <SelectItem key={order.id} value={order.id.toString()}>
+                          Order #{order.id} - {order.appUser.name}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="price" className="text-right">
-                    Price
+                  <Label htmlFor="productId" className="text-right">
+                    Product
+                  </Label>
+                  <Select
+                    name="productId"
+                    value={formData.productId.toString()}
+                    onValueChange={(value) =>
+                      handleSelectChange("productId", value)
+                    }
+                  >
+                    <SelectTrigger className="col-span-3">
+                      <SelectValue placeholder="Select a product" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {products.map((product: Product) => (
+                        <SelectItem
+                          key={product.id}
+                          value={product.id.toString()}
+                        >
+                          {product.name} (${product.price.toFixed(2)})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="quantity" className="text-right">
+                    Quantity
                   </Label>
                   <Input
-                    id="price"
-                    name="price"
+                    id="quantity"
+                    name="quantity"
                     type="number"
-                    step="0.01"
-                    value={formData.price}
+                    min="1"
+                    value={formData.quantity}
                     onChange={handleInputChange}
                     className="col-span-3"
                     required
                   />
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="stockQuantity" className="text-right">
-                    Stock Quantity
+                  <Label htmlFor="priceAtPurchase" className="text-right">
+                    Unit Price
                   </Label>
                   <Input
-                    id="stockQuantity"
-                    name="stockQuantity"
+                    id="priceAtPurchase"
+                    name="priceAtPurchase"
                     type="number"
-                    value={formData.stockQuantity}
+                    step="0.01"
+                    value={formData.priceAtPurchase}
                     onChange={handleInputChange}
                     className="col-span-3"
-                  />
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="description" className="text-right">
-                    Description
-                  </Label>
-                  <Input
-                    id="description"
-                    name="description"
-                    value={formData.description}
-                    onChange={handleInputChange}
-                    className="col-span-3"
+                    required
                   />
                 </div>
               </div>
@@ -473,11 +503,11 @@ export default function ProductsPage() {
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>
-                Are you sure you want to delete this product?
+                Are you sure you want to delete this order item?
               </AlertDialogTitle>
               <AlertDialogDescription>
-                This action cannot be undone. The product will be permanently
-                removed.
+                This action cannot be undone. The order item will be permanently
+                removed from the order.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>

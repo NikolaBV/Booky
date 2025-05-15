@@ -1,11 +1,11 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import agent from "../../api/agent";
-
-// Import models
-import type { PurchaseOrder, AppUser } from "../../api/models";
-
-// Import shadcn components
+import type {
+  PurchaseOrder,
+  AppUser,
+  CreateOrderModel,
+} from "../../api/models";
 import {
   Table,
   TableBody,
@@ -44,11 +44,11 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "../../components/ui/alert-dialog";
 
 export default function Home() {
   const queryClient = useQueryClient();
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isUpdateDialogOpen, setIsUpdateDialogOpen] = useState(false);
   const [currentOrder, setCurrentOrder] = useState<PurchaseOrder | null>(null);
   const [formData, setFormData] = useState({
@@ -56,8 +56,8 @@ export default function Home() {
     appUserId: 0,
     userName: "",
     userEmail: "",
-    orderDate: "",
-    totalAmount: "",
+    orderDate: new Date().toISOString().split("T")[0], // Default to today
+    totalAmount: "0",
   });
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [orderToDelete, setOrderToDelete] = useState<number | null>(null);
@@ -65,6 +65,14 @@ export default function Home() {
   const { data: orders = [], isLoading } = useQuery({
     queryKey: ["ordersQuery"],
     queryFn: () => agent.orders.list(),
+  });
+
+  const createMutation = useMutation({
+    mutationFn: (order: CreateOrderModel) => agent.orders.create(order),
+    onSuccess: () => {
+      setIsCreateDialogOpen(false);
+      queryClient.invalidateQueries({ queryKey: ["ordersQuery"] });
+    },
   });
 
   const deleteMutation = useMutation({
@@ -81,6 +89,18 @@ export default function Home() {
       queryClient.invalidateQueries({ queryKey: ["ordersQuery"] });
     },
   });
+
+  const handleCreateClick = () => {
+    setFormData({
+      id: 0,
+      appUserId: 0,
+      userName: "",
+      userEmail: "",
+      orderDate: new Date().toISOString().split("T")[0],
+      totalAmount: "0",
+    });
+    setIsCreateDialogOpen(true);
+  };
 
   const handleUpdateClick = (order: PurchaseOrder) => {
     setCurrentOrder(order);
@@ -103,7 +123,21 @@ export default function Home() {
     });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleCreateSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const newOrder: CreateOrderModel = {
+      appUser: {
+        id: 0, // Will be assigned by backend
+        name: formData.userName,
+        email: formData.userEmail,
+      },
+      orderDate: new Date(formData.orderDate),
+      totalAmount: parseFloat(formData.totalAmount) || 0,
+    };
+    createMutation.mutate(newOrder);
+  };
+
+  const handleUpdateSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const updatedOrder = {
       id: formData.id,
@@ -115,9 +149,9 @@ export default function Home() {
       orderDate: new Date(formData.orderDate),
       totalAmount: parseFloat(formData.totalAmount),
     };
-
     updateMutation.mutate(updatedOrder);
   };
+
   const handleDeleteClick = (orderId: number) => {
     setOrderToDelete(orderId);
     setIsDeleteDialogOpen(true);
@@ -144,7 +178,11 @@ export default function Home() {
       <div className="container mx-auto">
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-2xl font-bold">Orders Management</h1>
-          <Button variant="outline" className="flex gap-2">
+          <Button
+            variant="outline"
+            className="flex gap-2"
+            onClick={handleCreateClick}
+          >
             <PlusCircle className="h-4 w-4" />
             Add New Order
           </Button>
@@ -206,6 +244,90 @@ export default function Home() {
           </Table>
         </div>
 
+        {/* Create Order Dialog */}
+        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Create New Order</DialogTitle>
+              <DialogDescription>
+                Fill in the details for the new order.
+              </DialogDescription>
+            </DialogHeader>
+            <form onSubmit={handleCreateSubmit}>
+              <div className="grid gap-4 py-4">
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="userName" className="text-right">
+                    Customer Name
+                  </Label>
+                  <Input
+                    id="userName"
+                    name="userName"
+                    value={formData.userName}
+                    onChange={handleInputChange}
+                    className="col-span-3"
+                    required
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="userEmail" className="text-right">
+                    Email
+                  </Label>
+                  <Input
+                    id="userEmail"
+                    name="userEmail"
+                    type="email"
+                    value={formData.userEmail}
+                    onChange={handleInputChange}
+                    className="col-span-3"
+                    required
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="orderDate" className="text-right">
+                    Order Date
+                  </Label>
+                  <Input
+                    id="orderDate"
+                    name="orderDate"
+                    type="date"
+                    value={formData.orderDate}
+                    onChange={handleInputChange}
+                    className="col-span-3"
+                    required
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="totalAmount" className="text-right">
+                    Total Amount
+                  </Label>
+                  <Input
+                    id="totalAmount"
+                    name="totalAmount"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={formData.totalAmount}
+                    onChange={handleInputChange}
+                    className="col-span-3"
+                    required
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsCreateDialogOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button type="submit">Create Order</Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
+
+        {/* Update Order Dialog */}
         <Dialog open={isUpdateDialogOpen} onOpenChange={setIsUpdateDialogOpen}>
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
@@ -214,7 +336,7 @@ export default function Home() {
                 Make changes to the order details below.
               </DialogDescription>
             </DialogHeader>
-            <form onSubmit={handleSubmit}>
+            <form onSubmit={handleUpdateSubmit}>
               <div className="grid gap-4 py-4">
                 <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="userName" className="text-right">
@@ -279,33 +401,35 @@ export default function Home() {
             </form>
           </DialogContent>
         </Dialog>
+
+        {/* Delete Dialog */}
+        {isDeleteDialogOpen && (
+          <AlertDialog
+            open={isDeleteDialogOpen}
+            onOpenChange={setIsDeleteDialogOpen}
+          >
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>
+                  Are you sure you want to delete this order?
+                </AlertDialogTitle>
+                <AlertDialogDescription>
+                  This action cannot be undone. The order will be permanently
+                  removed.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel onClick={() => setIsDeleteDialogOpen(false)}>
+                  Cancel
+                </AlertDialogCancel>
+                <AlertDialogAction onClick={confirmDelete}>
+                  Delete
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        )}
       </div>
-      {isDeleteDialogOpen && (
-        <AlertDialog
-          open={isDeleteDialogOpen}
-          onOpenChange={setIsDeleteDialogOpen}
-        >
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>
-                Are you sure you want to delete this order?
-              </AlertDialogTitle>
-              <AlertDialogDescription>
-                This action cannot be undone. The order will be permanently
-                removed.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel onClick={() => setIsDeleteDialogOpen(false)}>
-                Cancel
-              </AlertDialogCancel>
-              <AlertDialogAction onClick={confirmDelete}>
-                Delete
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-      )}
     </div>
   );
 }
