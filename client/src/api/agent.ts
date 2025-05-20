@@ -5,6 +5,9 @@ import type {
   Product,
   OrderItem,
   PurchaseOrderDTO,
+  RegisterRequest,
+  AuthResponse,
+  LoginRequest,
 } from "./models";
 
 axios.defaults.baseURL = import.meta.env.VITE_API_URL;
@@ -25,6 +28,21 @@ const requests = {
     axios.post<T>(url, body).then(responseBody),
   put: <T>(url: string, body: {}) => axios.put<T>(url, body).then(responseBody),
   delete: <T>(url: string) => axios.delete<T>(url).then(responseBody),
+};
+
+const auth = {
+  register: (registerData: RegisterRequest): Promise<AuthResponse> => {
+    return requests.post("/auth/register", registerData);
+  },
+  login: (loginData: LoginRequest): Promise<AuthResponse> => {
+    return requests.post("/auth/login", loginData);
+  },
+  validateToken: (): Promise<void> => {
+    return requests.get("/auth/validate");
+  },
+  logout: (): void => {
+    localStorage.removeItem("token");
+  },
 };
 
 const orders = {
@@ -72,6 +90,7 @@ const orderItems = {
 };
 
 const agent = {
+  auth,
   orders,
   categories,
   products,

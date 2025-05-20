@@ -54,7 +54,7 @@ import {
   SelectValue,
 } from "../../components/ui/select";
 
-export default function OrderItemsPage() {
+export default function OrderItems() {
   const queryClient = useQueryClient();
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isUpdateDialogOpen, setIsUpdateDialogOpen] = useState(false);

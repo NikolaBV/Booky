@@ -55,3 +55,21 @@ export interface OrderItemDTO {
   quantity: number;
   priceAtPurchase: number;
 }
+
+export interface RegisterRequest {
+  username: string;
+  password: string;
+  email: string;
+  phone?: string;
+  address?: string;
+}
+
+export interface LoginRequest {
+  username: string;
+  password: string;
+}
+
+export interface AuthResponse {
+  token: string;
+  username: string;
+}
