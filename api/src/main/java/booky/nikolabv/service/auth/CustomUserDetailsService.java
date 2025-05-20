@@ -7,7 +7,6 @@ import java.util.stream.Collectors;
 
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -16,6 +15,7 @@ import org.springframework.stereotype.Service;
 import booky.nikolabv.model.AppUser;
 import booky.nikolabv.model.UserRole;
 import booky.nikolabv.repository.AppUserRepository;
+import booky.nikolabv.util.CustomUserDetails;
 import lombok.RequiredArgsConstructor;
 
 @Service
@@ -30,21 +30,21 @@ public class CustomUserDetailsService implements UserDetailsService {
         if (user == null) {
             throw new UsernameNotFoundException("User not found with username: " + username);
         }
-        
-        return new User(
-            user.getUsername(), 
-            user.getPassword(), 
-            true, true, true, true,  // account non-expired, credentials non-expired, account non-locked, enabled
-            getAuthorities(user.getRoles())
+
+        return new CustomUserDetails(
+                user.getId(),
+                user.getUsername(),
+                user.getPassword(),
+                getAuthorities(user.getRoles())
         );
     }
-    
+
     private Collection<? extends GrantedAuthority> getAuthorities(Set<UserRole> roles) {
         if (roles == null || roles.isEmpty()) {
             // If no roles are assigned, give default USER role
             return List.of(new SimpleGrantedAuthority("ROLE_USER"));
         }
-        
+
         // Convert roles to authorities
         return roles.stream()
                 .map(role -> new SimpleGrantedAuthority(role.name()))

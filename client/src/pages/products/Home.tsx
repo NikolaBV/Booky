@@ -90,14 +90,13 @@ export default function Products() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: (product: Partial<Product>) =>
-      agent.products.update(product.id!, product),
+    mutationFn: (data: { id: number; product: ProductDTO }) =>
+      agent.products.update(data.id, data.product),
     onSuccess: () => {
       setIsUpdateDialogOpen(false);
       queryClient.invalidateQueries({ queryKey: ["productsQuery"] });
     },
   });
-
   const handleCreateClick = () => {
     setFormData({
       id: 0,
@@ -151,7 +150,7 @@ export default function Products() {
     if (formData.id === 0) {
       createMutation.mutate(productData);
     } else {
-      updateMutation.mutate(productData);
+      updateMutation.mutate({ id: formData.id, product: productData });
     }
   };
 

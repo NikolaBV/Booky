@@ -13,6 +13,7 @@ import SignIn from "./pages/auth/sign-in/SignIn.tsx";
 import SignUp from "./pages/auth/sign-up/SignUp.tsx";
 import ProtectedRoute from "./components/ProtectedRoute.tsx";
 import { Toaster } from "./components/ui/sonner.tsx";
+import OrderItems from "./pages/order-items/Home.tsx";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -38,6 +39,7 @@ createRoot(document.getElementById("root")!).render(
                 <Route path="/orders" element={<Orders />} />
                 <Route path="/products" element={<Products />} />
                 <Route path="/categories" element={<Categories />} />
+                <Route path="/order-items" element={<OrderItems />} />
               </Route>
 
               <Route path="*" element={<Navigate to="/" replace />} />

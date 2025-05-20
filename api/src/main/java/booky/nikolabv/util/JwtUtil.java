@@ -18,20 +18,24 @@ import io.jsonwebtoken.security.Keys;
 
 @Component
 public class JwtUtil {
-    
+
     @Value("${jwt.secret}")
     private String secret;
-    
+
     @Value("${jwt.expiration}")
     private long jwtExpiration;
-    
+
     // Generate token for user
     public String generateToken(UserDetails userDetails) {
         return generateToken(new HashMap<>(), userDetails);
     }
-    
-    // Generate token with extra claims
+
     public String generateToken(Map<String, Object> extraClaims, UserDetails userDetails) {
+        // Add user ID to claims
+        if (userDetails instanceof CustomUserDetails) {
+            extraClaims.put("userId", ((CustomUserDetails) userDetails).getId());
+        }
+
         return Jwts.builder()
                 .setClaims(extraClaims)
                 .setSubject(userDetails.getUsername())
@@ -40,29 +44,29 @@ public class JwtUtil {
                 .signWith(getSigningKey(), SignatureAlgorithm.HS256)
                 .compact();
     }
-    
+
     // Validate token
     public boolean validateToken(String token, UserDetails userDetails) {
         final String username = extractUsername(token);
         return (username.equals(userDetails.getUsername()) && !isTokenExpired(token));
     }
-    
+
     // Extract username from token
     public String extractUsername(String token) {
         return extractClaim(token, Claims::getSubject);
     }
-    
+
     // Extract expiration date
     public Date extractExpiration(String token) {
         return extractClaim(token, Claims::getExpiration);
     }
-    
+
     // Extract claim
     public <T> T extractClaim(String token, Function<Claims, T> claimsResolver) {
         final Claims claims = extractAllClaims(token);
         return claimsResolver.apply(claims);
     }
-    
+
     // Extract all claims
     private Claims extractAllClaims(String token) {
         return Jwts.parserBuilder()
@@ -71,12 +75,12 @@ public class JwtUtil {
                 .parseClaimsJws(token)
                 .getBody();
     }
-    
+
     // Check if token is expired
     private Boolean isTokenExpired(String token) {
         return extractExpiration(token).before(new Date());
     }
-    
+
     // Get signing key
     private Key getSigningKey() {
         byte[] keyBytes = Decoders.BASE64.decode(secret);

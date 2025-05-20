@@ -8,6 +8,8 @@ import type {
   RegisterRequest,
   AuthResponse,
   LoginRequest,
+  ProductDTO,
+  OrderItemDTO,
 } from "./models";
 
 axios.defaults.baseURL = import.meta.env.VITE_API_URL;
@@ -72,7 +74,7 @@ const products = {
   details: (id: number) => requests.get<Product>(`/product/${id}`),
   create: (product: Partial<Product>) =>
     requests.post<Product>("/product", product),
-  update: (id: number, product: Partial<Product>) =>
+  update: (id: number, product: ProductDTO) =>
     requests.put<Product>(`/product/${id}`, product),
   delete: (id: number) => requests.delete(`/product/${id}`),
 };
@@ -84,7 +86,7 @@ const orderItems = {
     requests.get<OrderItem[]>(`/orderitem/order/${orderId}`),
   create: (orderItem: Partial<OrderItem>) =>
     requests.post<OrderItem>("/orderitem", orderItem),
-  update: (id: number, orderItem: Partial<OrderItem>) =>
+  update: (id: number, orderItem: OrderItemDTO) =>
     requests.put<OrderItem>(`/orderitem/${id}`, orderItem),
   delete: (id: number) => requests.delete(`/orderitem/${id}`),
 };

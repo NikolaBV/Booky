@@ -71,27 +71,39 @@ export const useLogout = () => {
 export const useCurrentUser = () => {
   const token = localStorage.getItem("token");
 
-  const isAuthenticated = () => {
-    if (!token) return false;
+  const getDecodedToken = () => {
+    if (!token) return null;
 
     try {
-      const decodedToken = JSON.parse(atob(token.split(".")[1]));
-      const expirationTime = decodedToken.exp * 1000;
-
-      if (Date.now() >= expirationTime) {
-        localStorage.removeItem("token");
-        return false;
-      }
-
-      return true;
+      const decoded = JSON.parse(atob(token.split(".")[1]));
+      return {
+        username: decoded.sub,
+        userId: decoded.userId,
+        exp: decoded.exp,
+      };
     } catch (error) {
+      return null;
+    }
+  };
+
+  const decodedToken = getDecodedToken();
+
+  const isAuthenticated = () => {
+    if (!decodedToken) return false;
+
+    const expirationTime = decodedToken.exp * 1000;
+    if (Date.now() >= expirationTime) {
       localStorage.removeItem("token");
       return false;
     }
+
+    return true;
   };
 
   return {
     isAuthenticated: isAuthenticated(),
-    username: token ? JSON.parse(atob(token.split(".")[1])).sub : null,
+    username: decodedToken?.username || null,
+    userId: decodedToken?.userId || null,
+    decodedToken,
   };
 };

@@ -102,8 +102,8 @@ export default function OrderItems() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: (orderItem: Partial<OrderItem>) =>
-      agent.orderItems.update(orderItem.id!, orderItem),
+    mutationFn: (data: { id: number; orderItem: OrderItemDTO }) =>
+      agent.orderItems.update(data.id, data.orderItem),
     onSuccess: () => {
       setIsUpdateDialogOpen(false);
       queryClient.invalidateQueries({ queryKey: ["orderItemsQuery"] });
@@ -170,7 +170,7 @@ export default function OrderItems() {
     if (formData.id === 0) {
       createMutation.mutate(orderItemData);
     } else {
-      updateMutation.mutate(orderItemData);
+      updateMutation.mutate({ id: formData.id, orderItem: orderItemData });
     }
   };
 
@@ -295,7 +295,7 @@ export default function OrderItems() {
                     <SelectContent>
                       {orders.map((order: PurchaseOrder) => (
                         <SelectItem key={order.id} value={order.id.toString()}>
-                          Order #{order.id} - {order.appUser.name}
+                          Order #{order.id} - {order.appUser.username}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -400,7 +400,7 @@ export default function OrderItems() {
                     <SelectContent>
                       {orders.map((order: PurchaseOrder) => (
                         <SelectItem key={order.id} value={order.id.toString()}>
-                          Order #{order.id} - {order.appUser.name}
+                          Order #{order.id} - {order.appUser.username}
                         </SelectItem>
                       ))}
                     </SelectContent>

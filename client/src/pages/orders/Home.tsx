@@ -45,6 +45,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "../../components/ui/alert-dialog";
+import { useCurrentUser } from "../../hooks/useAuth";
+import { toast } from "sonner";
 
 export default function Orders() {
   const queryClient = useQueryClient();
@@ -55,12 +57,16 @@ export default function Orders() {
     id: 0,
     appUserId: 0,
     userName: "",
+    orderDate: new Date().toISOString().split("T")[0],
     userEmail: "",
-    orderDate: new Date().toISOString().split("T")[0], // Default to today
     totalAmount: "0",
   });
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [orderToDelete, setOrderToDelete] = useState<number | null>(null);
+
+  const { decodedToken } = useCurrentUser();
+  console.log(decodedToken);
+  console.log(decodedToken);
 
   const { data: orders = [], isLoading } = useQuery({
     queryKey: ["ordersQuery"],
@@ -107,7 +113,7 @@ export default function Orders() {
     setFormData({
       id: order.id,
       appUserId: order.appUser.id,
-      userName: order.appUser.name,
+      userName: order.appUser.username,
       userEmail: order.appUser.email,
       orderDate: new Date(order.orderDate).toISOString().split("T")[0],
       totalAmount: order.totalAmount.toString(),
@@ -125,8 +131,13 @@ export default function Orders() {
 
   const handleCreateSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
     const newOrder: PurchaseOrderDTO = {
-      appUser: { id: 1 }, //TODO HARDOCDED ID until authentication
+      appUser: {
+        id: decodedToken?.userId,
+        username: "",
+        email: "",
+      },
       orderDate: new Date(formData.orderDate),
       totalAmount: parseFloat(formData.totalAmount) || 0,
     };
@@ -135,13 +146,14 @@ export default function Orders() {
 
   const handleUpdateSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!decodedToken?.userId) {
+      toast.error("User not authenticated");
+      return;
+    }
+
     const updatedOrder = {
       id: formData.id,
-      appUser: {
-        id: formData.appUserId,
-        name: formData.userName,
-        email: formData.userEmail,
-      },
       orderDate: new Date(formData.orderDate),
       totalAmount: parseFloat(formData.totalAmount),
     };
@@ -201,7 +213,7 @@ export default function Orders() {
               {orders.map((order: PurchaseOrder) => (
                 <TableRow key={order.id}>
                   <TableCell className="font-medium">{order.id}</TableCell>
-                  <TableCell>{order.appUser.name}</TableCell>
+                  <TableCell>{order.appUser.username}</TableCell>
                   <TableCell>{order.appUser.email}</TableCell>
                   <TableCell>
                     {new Date(order.orderDate).toLocaleDateString()}
@@ -307,30 +319,6 @@ export default function Orders() {
             </DialogHeader>
             <form onSubmit={handleUpdateSubmit}>
               <div className="grid gap-4 py-4">
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="userName" className="text-right">
-                    Customer Name
-                  </Label>
-                  <Input
-                    id="userName"
-                    name="userName"
-                    value={formData.userName}
-                    onChange={handleInputChange}
-                    className="col-span-3"
-                  />
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="userEmail" className="text-right">
-                    Email
-                  </Label>
-                  <Input
-                    id="userEmail"
-                    name="userEmail"
-                    value={formData.userEmail}
-                    onChange={handleInputChange}
-                    className="col-span-3"
-                  />
-                </div>
                 <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="orderDate" className="text-right">
                     Order Date
