@@ -1,4 +1,4 @@
-package booky.nikolabv.service;
+package booky.nikolabv.service.purchaseOrder;
 
 import java.util.List;
 import java.util.Optional;

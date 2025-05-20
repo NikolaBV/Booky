@@ -1,8 +1,8 @@
 package booky.nikolabv.controller;
 
-import booky.nikolabv.dto.UserDTO;
+import booky.nikolabv.dto.AppUserDTO;
 import booky.nikolabv.model.AppUser;
-import booky.nikolabv.service.UserService;
+import booky.nikolabv.service.user.AppUserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -16,10 +16,10 @@ import java.util.List;
 @RequiredArgsConstructor
 public class UserController {
 
-    private final UserService userService;
+    private final AppUserService userService;
 
     @PostMapping
-    public ResponseEntity<AppUser> createUser(@Valid @RequestBody UserDTO userDTO) {
+    public ResponseEntity<AppUser> createUser(@Valid @RequestBody AppUserDTO userDTO) {
         AppUser createdUser = userService.createUser(userDTO);
         return new ResponseEntity<>(createdUser, HttpStatus.CREATED);
     }
@@ -40,7 +40,7 @@ public class UserController {
     @PutMapping("/{id}")
     public ResponseEntity<AppUser> updateUser(
             @PathVariable Long id, 
-            @Valid @RequestBody UserDTO userDTO) {
+            @Valid @RequestBody AppUserDTO userDTO) {
         AppUser updatedUser = userService.updateUser(id, userDTO);
         return ResponseEntity.ok(updatedUser);
     }

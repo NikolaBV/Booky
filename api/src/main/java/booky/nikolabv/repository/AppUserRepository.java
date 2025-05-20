@@ -10,4 +10,6 @@ import booky.nikolabv.model.AppUser;
 @Repository
 public interface AppUserRepository extends JpaRepository<AppUser, Long> {
     Optional<AppUser> findByEmail(String email);
+    AppUser findByUsername(String username);
+    boolean existsByUsername(String username);
 }

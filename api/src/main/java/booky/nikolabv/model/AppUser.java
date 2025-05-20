@@ -1,7 +1,12 @@
 package booky.nikolabv.model;
 
+import java.util.HashSet;
+import java.util.Set;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -24,7 +29,8 @@ public class AppUser {
     private Long id;
 
     @Column(nullable = false, length = 100)
-    private String name;
+    private String username;
+    private String password;
 
     @Column(nullable = false, unique = true, length = 100)
     private String email;
@@ -34,4 +40,6 @@ public class AppUser {
 
     @Column(columnDefinition = "TEXT")
     private String address;
+    @Enumerated(EnumType.STRING)
+    private Set<UserRole> roles = new HashSet<>();
 }

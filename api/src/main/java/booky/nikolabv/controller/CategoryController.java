@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import booky.nikolabv.dto.CategoryDTO;
 import booky.nikolabv.model.Category;
-import booky.nikolabv.service.CategoryService;
+import booky.nikolabv.service.category.CategoryService;
 import lombok.RequiredArgsConstructor;
 
 @RestController

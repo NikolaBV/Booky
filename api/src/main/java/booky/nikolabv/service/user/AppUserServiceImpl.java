@@ -1,4 +1,4 @@
-package booky.nikolabv.service;
+package booky.nikolabv.service.user;
 
 import java.util.List;
 import java.util.Optional;
@@ -6,7 +6,7 @@ import java.util.Optional;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import booky.nikolabv.dto.UserDTO;
+import booky.nikolabv.dto.AppUserDTO;
 import booky.nikolabv.model.AppUser;
 import booky.nikolabv.repository.AppUserRepository;
 import jakarta.persistence.EntityExistsException;
@@ -15,20 +15,21 @@ import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
-public class UserServiceImpl implements UserService {
+public class AppUserServiceImpl implements AppUserService {
 
     private final AppUserRepository userRepository;
 
     @Override
     @Transactional
-    public AppUser createUser(UserDTO userDTO) {
+    public AppUser createUser(AppUserDTO userDTO) {
         // Check if email already exists
         if (userRepository.findByEmail(userDTO.getEmail()).isPresent()) {
             throw new EntityExistsException("User with email " + userDTO.getEmail() + " already exists");
         }
 
         AppUser user = AppUser.builder()
-                .name(userDTO.getName())
+                .username(userDTO.getUsername())
+                .password(userDTO.getPassword())
                 .email(userDTO.getEmail())
                 .phone(userDTO.getPhone())
                 .address(userDTO.getAddress())
@@ -49,7 +50,7 @@ public class UserServiceImpl implements UserService {
 
     @Override
     @Transactional
-    public AppUser updateUser(Long id, UserDTO userDTO) {
+    public AppUser updateUser(Long id, AppUserDTO userDTO) {
         AppUser existingUser = userRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("User not found with id: " + id));
 
@@ -58,7 +59,8 @@ public class UserServiceImpl implements UserService {
             throw new EntityExistsException("Email " + userDTO.getEmail() + " is already in use");
         }
 
-        existingUser.setName(userDTO.getName());
+        existingUser.setUsername(userDTO.getUsername());
+        existingUser.setPassword(userDTO.getPassword());
         existingUser.setEmail(userDTO.getEmail());
         existingUser.setPhone(userDTO.getPhone());
         existingUser.setAddress(userDTO.getAddress());

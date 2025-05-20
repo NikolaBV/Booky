@@ -1,4 +1,4 @@
-package booky.nikolabv.service;
+package booky.nikolabv.service.category;
 
 import java.util.List;
 import java.util.Optional;

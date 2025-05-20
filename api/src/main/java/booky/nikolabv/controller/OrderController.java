@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import booky.nikolabv.dto.PurchaseOrderDTO;
 import booky.nikolabv.model.PurchaseOrder;
-import booky.nikolabv.service.PurchaseOrderService;
+import booky.nikolabv.service.purchaseOrder.PurchaseOrderService;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 

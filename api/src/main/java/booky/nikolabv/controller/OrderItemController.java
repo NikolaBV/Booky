@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import booky.nikolabv.dto.OrderItemDTO;
 import booky.nikolabv.model.OrderItem;
-import booky.nikolabv.service.OrderItemService;
+import booky.nikolabv.service.orderItem.OrderItemService;
 import lombok.RequiredArgsConstructor;
 
 @RestController
