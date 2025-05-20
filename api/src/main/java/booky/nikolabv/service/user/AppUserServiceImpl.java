@@ -3,6 +3,7 @@ package booky.nikolabv.service.user;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,6 +19,7 @@ import lombok.RequiredArgsConstructor;
 public class AppUserServiceImpl implements AppUserService {
 
     private final AppUserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
 
     @Override
     @Transactional
@@ -27,9 +29,14 @@ public class AppUserServiceImpl implements AppUserService {
             throw new EntityExistsException("User with email " + userDTO.getEmail() + " already exists");
         }
 
+        // Check if username already exists
+        if (userRepository.existsByUsername(userDTO.getUsername())) {
+            throw new EntityExistsException("User with username " + userDTO.getUsername() + " already exists");
+        }
+
         AppUser user = AppUser.builder()
                 .username(userDTO.getUsername())
-                .password(userDTO.getPassword())
+                .password(passwordEncoder.encode(userDTO.getPassword()))
                 .email(userDTO.getEmail())
                 .phone(userDTO.getPhone())
                 .address(userDTO.getAddress())
@@ -54,13 +61,16 @@ public class AppUserServiceImpl implements AppUserService {
         AppUser existingUser = userRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("User not found with id: " + id));
 
-        if (!existingUser.getEmail().equals(userDTO.getEmail()) &&
-            userRepository.findByEmail(userDTO.getEmail()).isPresent()) {
+        if (!existingUser.getEmail().equals(userDTO.getEmail())
+                && userRepository.findByEmail(userDTO.getEmail()).isPresent()) {
             throw new EntityExistsException("Email " + userDTO.getEmail() + " is already in use");
         }
 
         existingUser.setUsername(userDTO.getUsername());
-        existingUser.setPassword(userDTO.getPassword());
+        // Only update password if it's provided
+        if (userDTO.getPassword() != null && !userDTO.getPassword().isEmpty()) {
+            existingUser.setPassword(passwordEncoder.encode(userDTO.getPassword()));
+        }
         existingUser.setEmail(userDTO.getEmail());
         existingUser.setPhone(userDTO.getPhone());
         existingUser.setAddress(userDTO.getAddress());
