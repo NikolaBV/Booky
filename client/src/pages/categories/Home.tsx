@@ -30,7 +30,7 @@ import {
 } from "../../components/ui/dialog";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
-import { MoreHorizontal, PlusCircle } from "lucide-react";
+import { MoreHorizontal, PlusCircle, Search } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -41,6 +41,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "../../components/ui/alert-dialog";
+import { toast } from "sonner";
 
 export default function Categories() {
   const queryClient = useQueryClient();
@@ -55,9 +56,21 @@ export default function Categories() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [categoryToDelete, setCategoryToDelete] = useState<number | null>(null);
 
+  // Search state
+  const [searchTerm, setSearchTerm] = useState("");
+  const [isSearching, setIsSearching] = useState(false);
+
+  // Regular query for all categories
   const { data: categories = [], isLoading } = useQuery({
     queryKey: ["categoriesQuery"],
     queryFn: () => agent.categories.list(),
+  });
+
+  // Search query
+  const { data: searchResults = [], refetch: searchCategories } = useQuery({
+    queryKey: ["categoriesSearchQuery"],
+    queryFn: () => agent.categories.search(searchTerm),
+    enabled: false, // Disable automatic running
   });
 
   const createMutation = useMutation({
@@ -65,6 +78,13 @@ export default function Categories() {
     onSuccess: () => {
       setIsCreateDialogOpen(false);
       queryClient.invalidateQueries({ queryKey: ["categoriesQuery"] });
+      if (isSearching) {
+        searchCategories();
+      }
+      toast.success("Category created successfully");
+    },
+    onError: () => {
+      toast.error("Failed to create category");
     },
   });
 
@@ -72,6 +92,13 @@ export default function Categories() {
     mutationFn: (categoryId: number) => agent.categories.delete(categoryId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["categoriesQuery"] });
+      if (isSearching) {
+        searchCategories();
+      }
+      toast.success("Category deleted successfully");
+    },
+    onError: () => {
+      toast.error("Failed to delete category");
     },
   });
 
@@ -81,6 +108,13 @@ export default function Categories() {
     onSuccess: () => {
       setIsUpdateDialogOpen(false);
       queryClient.invalidateQueries({ queryKey: ["categoriesQuery"] });
+      if (isSearching) {
+        searchCategories();
+      }
+      toast.success("Category updated successfully");
+    },
+    onError: () => {
+      toast.error("Failed to update category");
     },
   });
 
@@ -111,12 +145,18 @@ export default function Categories() {
     });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleCreateSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (formData.id === 0) {
-      createMutation.mutate(formData);
-    } else {
-      updateMutation.mutate(formData);
+    createMutation.mutate(formData);
+  };
+
+  const handleUpdateSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (currentCategory) {
+      updateMutation.mutate({
+        ...formData,
+        id: currentCategory.id,
+      });
     }
   };
 
@@ -133,6 +173,20 @@ export default function Categories() {
     }
   };
 
+  const handleSearch = () => {
+    if (!searchTerm.trim()) {
+      toast.warning("Please enter a search term");
+      return;
+    }
+    setIsSearching(true);
+    searchCategories();
+  };
+
+  const handleClearSearch = () => {
+    setIsSearching(false);
+    setSearchTerm("");
+  };
+
   if (isLoading) {
     return (
       <div className="flex justify-center items-center min-h-screen">
@@ -140,6 +194,8 @@ export default function Categories() {
       </div>
     );
   }
+
+  const displayedCategories = isSearching ? searchResults : categories;
 
   return (
     <div className="min-h-screen bg-background text-foreground p-6">
@@ -156,9 +212,41 @@ export default function Categories() {
           </Button>
         </div>
 
+        {/* Search Section */}
+        <div className="mb-6 p-4 border rounded-lg bg-card">
+          <h2 className="text-lg font-semibold mb-4">Search Categories</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="search-term">Search Term</Label>
+              <Input
+                id="search-term"
+                placeholder="Search by name or description..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+            <div className="flex items-end gap-2">
+              <Button onClick={handleSearch} className="flex gap-2">
+                <Search className="h-4 w-4" />
+                Search
+              </Button>
+              {isSearching && (
+                <Button variant="outline" onClick={handleClearSearch}>
+                  Clear
+                </Button>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Categories Table */}
         <div className="rounded-md border">
           <Table>
-            <TableCaption>A list of your categories.</TableCaption>
+            <TableCaption>
+              {isSearching
+                ? `Showing ${searchResults.length} search results`
+                : "A list of your categories"}
+            </TableCaption>
             <TableHeader>
               <TableRow>
                 <TableHead>ID</TableHead>
@@ -168,38 +256,48 @@ export default function Categories() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {categories.map((category: Category) => (
-                <TableRow key={category.id}>
-                  <TableCell className="font-medium">{category.id}</TableCell>
-                  <TableCell>{category.name}</TableCell>
-                  <TableCell>{category.description || "-"}</TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" className="h-8 w-8 p-0">
-                          <span className="sr-only">Open menu</span>
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          onClick={() => handleUpdateClick(category)}
-                        >
-                          Edit
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          className="text-red-600 focus:text-red-600"
-                          onClick={() => handleDeleteClick(category.id)}
-                        >
-                          Delete
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+              {displayedCategories.length > 0 ? (
+                displayedCategories.map((category: Category) => (
+                  <TableRow key={category.id}>
+                    <TableCell className="font-medium">{category.id}</TableCell>
+                    <TableCell>{category.name}</TableCell>
+                    <TableCell>{category.description || "-"}</TableCell>
+                    <TableCell>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" className="h-8 w-8 p-0">
+                            <span className="sr-only">Open menu</span>
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            onClick={() => handleUpdateClick(category)}
+                          >
+                            Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            className="text-red-600 focus:text-red-600"
+                            onClick={() => handleDeleteClick(category.id)}
+                          >
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={4} className="text-center py-4">
+                    {isSearching
+                      ? "No categories match your search criteria"
+                      : "No categories found"}
                   </TableCell>
                 </TableRow>
-              ))}
+              )}
             </TableBody>
           </Table>
         </div>
@@ -213,7 +311,7 @@ export default function Categories() {
                 Add a new category to your store.
               </DialogDescription>
             </DialogHeader>
-            <form onSubmit={handleSubmit}>
+            <form onSubmit={handleCreateSubmit}>
               <div className="grid gap-4 py-4">
                 <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="name" className="text-right">
@@ -249,7 +347,9 @@ export default function Categories() {
                 >
                   Cancel
                 </Button>
-                <Button type="submit">Create</Button>
+                <Button type="submit" disabled={createMutation.isPending}>
+                  {createMutation.isPending ? "Creating..." : "Create"}
+                </Button>
               </DialogFooter>
             </form>
           </DialogContent>
@@ -264,7 +364,7 @@ export default function Categories() {
                 Make changes to the category below.
               </DialogDescription>
             </DialogHeader>
-            <form onSubmit={handleSubmit}>
+            <form onSubmit={handleUpdateSubmit}>
               <div className="grid gap-4 py-4">
                 <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="name" className="text-right">
@@ -300,7 +400,9 @@ export default function Categories() {
                 >
                   Cancel
                 </Button>
-                <Button type="submit">Save changes</Button>
+                <Button type="submit" disabled={updateMutation.isPending}>
+                  {updateMutation.isPending ? "Saving..." : "Save changes"}
+                </Button>
               </DialogFooter>
             </form>
           </DialogContent>
@@ -325,8 +427,11 @@ export default function Categories() {
               <AlertDialogCancel onClick={() => setIsDeleteDialogOpen(false)}>
                 Cancel
               </AlertDialogCancel>
-              <AlertDialogAction onClick={confirmDelete}>
-                Delete
+              <AlertDialogAction
+                onClick={confirmDelete}
+                disabled={deleteMutation.isPending}
+              >
+                {deleteMutation.isPending ? "Deleting..." : "Delete"}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>

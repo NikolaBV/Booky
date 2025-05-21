@@ -34,7 +34,7 @@ import {
 } from "../../components/ui/dialog";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
-import { MoreHorizontal, PlusCircle } from "lucide-react";
+import { MoreHorizontal, PlusCircle, Search } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -64,13 +64,32 @@ export default function Orders() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [orderToDelete, setOrderToDelete] = useState<number | null>(null);
 
-  const { decodedToken } = useCurrentUser();
-  console.log(decodedToken);
-  console.log(decodedToken);
+  // Search state
+  const [searchParams, setSearchParams] = useState({
+    username: "",
+    startDate: "",
+    endDate: "",
+  });
+  const [isSearching, setIsSearching] = useState(false);
 
+  const { decodedToken } = useCurrentUser();
+
+  // Regular query for all orders
   const { data: orders = [], isLoading } = useQuery({
     queryKey: ["ordersQuery"],
     queryFn: () => agent.orders.list(),
+  });
+
+  // Search query
+  const { data: searchResults = [], refetch: searchOrders } = useQuery({
+    queryKey: ["ordersSearchQuery"],
+    queryFn: () =>
+      agent.orders.search(
+        searchParams.username,
+        searchParams.startDate ? new Date(searchParams.startDate) : null,
+        searchParams.endDate ? new Date(searchParams.endDate) : null
+      ),
+    enabled: false, // Disable automatic running
   });
 
   const createMutation = useMutation({
@@ -78,6 +97,13 @@ export default function Orders() {
     onSuccess: () => {
       setIsCreateDialogOpen(false);
       queryClient.invalidateQueries({ queryKey: ["ordersQuery"] });
+      if (isSearching) {
+        searchOrders();
+      }
+      toast.success("Order created successfully");
+    },
+    onError: () => {
+      toast.error("Failed to create order");
     },
   });
 
@@ -85,6 +111,13 @@ export default function Orders() {
     mutationFn: (orderId: number) => agent.orders.delete(orderId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["ordersQuery"] });
+      if (isSearching) {
+        searchOrders();
+      }
+      toast.success("Order deleted successfully");
+    },
+    onError: () => {
+      toast.error("Failed to delete order");
     },
   });
 
@@ -93,6 +126,13 @@ export default function Orders() {
     onSuccess: () => {
       setIsUpdateDialogOpen(false);
       queryClient.invalidateQueries({ queryKey: ["ordersQuery"] });
+      if (isSearching) {
+        searchOrders();
+      }
+      toast.success("Order updated successfully");
+    },
+    onError: () => {
+      toast.error("Failed to update order");
     },
   });
 
@@ -132,9 +172,14 @@ export default function Orders() {
   const handleCreateSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
+    if (!decodedToken?.userId) {
+      toast.error("User not authenticated");
+      return;
+    }
+
     const newOrder: PurchaseOrderDTO = {
       appUser: {
-        id: decodedToken?.userId,
+        id: decodedToken.userId,
         username: "",
         email: "",
       },
@@ -147,13 +192,11 @@ export default function Orders() {
   const handleUpdateSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!decodedToken?.userId) {
-      toast.error("User not authenticated");
-      return;
-    }
+    if (!currentOrder) return;
 
     const updatedOrder = {
-      id: formData.id,
+      id: currentOrder.id,
+      appUser: currentOrder.appUser,
       orderDate: new Date(formData.orderDate),
       totalAmount: parseFloat(formData.totalAmount),
     };
@@ -173,6 +216,28 @@ export default function Orders() {
     }
   };
 
+  const handleSearch = () => {
+    if (
+      !searchParams.username &&
+      !searchParams.startDate &&
+      !searchParams.endDate
+    ) {
+      toast.warning("Please enter at least one search criteria");
+      return;
+    }
+    setIsSearching(true);
+    searchOrders();
+  };
+
+  const handleClearSearch = () => {
+    setIsSearching(false);
+    setSearchParams({
+      username: "",
+      startDate: "",
+      endDate: "",
+    });
+  };
+
   if (isLoading) {
     return (
       <div className="flex justify-center items-center min-h-screen">
@@ -181,24 +246,98 @@ export default function Orders() {
     );
   }
 
+  const displayedOrders = isSearching ? searchResults : orders;
+
   return (
     <div className="min-h-screen bg-background text-foreground p-6">
       <div className="container mx-auto">
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-2xl font-bold">Orders Management</h1>
-          <Button
-            variant="outline"
-            className="flex gap-2"
-            onClick={handleCreateClick}
-          >
-            <PlusCircle className="h-4 w-4" />
-            Add New Order
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              className="flex gap-2"
+              onClick={handleCreateClick}
+            >
+              <PlusCircle className="h-4 w-4" />
+              Add New Order
+            </Button>
+          </div>
         </div>
 
+        {/* Search Section */}
+        <div className="mb-6 p-4 border rounded-lg bg-card">
+          <h2 className="text-lg font-semibold mb-4">Search Orders</h2>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div>
+              <Label htmlFor="search-username">Customer Name</Label>
+              <Input
+                id="search-username"
+                placeholder="Search by name..."
+                value={searchParams.username}
+                onChange={(e) =>
+                  setSearchParams({
+                    ...searchParams,
+                    username: e.target.value,
+                  })
+                }
+              />
+            </div>
+            <div>
+              <Label htmlFor="search-start-date">From Date</Label>
+              <Input
+                id="search-start-date"
+                type="date"
+                value={searchParams.startDate}
+                max={
+                  searchParams.endDate || new Date().toISOString().split("T")[0]
+                }
+                onChange={(e) =>
+                  setSearchParams({
+                    ...searchParams,
+                    startDate: e.target.value,
+                  })
+                }
+              />
+            </div>
+            <div>
+              <Label htmlFor="search-end-date">To Date</Label>
+              <Input
+                id="search-end-date"
+                type="date"
+                value={searchParams.endDate}
+                min={searchParams.startDate}
+                max={new Date().toISOString().split("T")[0]}
+                onChange={(e) =>
+                  setSearchParams({
+                    ...searchParams,
+                    endDate: e.target.value,
+                  })
+                }
+              />
+            </div>
+            <div className="flex items-end gap-2">
+              <Button onClick={handleSearch} className="flex gap-2">
+                <Search className="h-4 w-4" />
+                Search
+              </Button>
+              {isSearching && (
+                <Button variant="outline" onClick={handleClearSearch}>
+                  Clear
+                </Button>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Orders Table */}
         <div className="rounded-md border">
           <Table>
-            <TableCaption>A list of your recent orders.</TableCaption>
+            <TableCaption>
+              {isSearching
+                ? `Showing ${searchResults.length} search results`
+                : "A list of your recent orders"}
+            </TableCaption>
             <TableHeader>
               <TableRow>
                 <TableHead>Order ID</TableHead>
@@ -210,44 +349,54 @@ export default function Orders() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {orders.map((order: PurchaseOrder) => (
-                <TableRow key={order.id}>
-                  <TableCell className="font-medium">{order.id}</TableCell>
-                  <TableCell>{order.appUser.username}</TableCell>
-                  <TableCell>{order.appUser.email}</TableCell>
-                  <TableCell>
-                    {new Date(order.orderDate).toLocaleDateString()}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    ${order.totalAmount.toFixed(2)}
-                  </TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" className="h-8 w-8 p-0">
-                          <span className="sr-only">Open menu</span>
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          onClick={() => handleUpdateClick(order)}
-                        >
-                          Edit
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          className="text-red-600 focus:text-red-600"
-                          onClick={() => handleDeleteClick(order.id)}
-                        >
-                          Delete
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+              {displayedOrders.length > 0 ? (
+                displayedOrders.map((order: PurchaseOrder) => (
+                  <TableRow key={order.id}>
+                    <TableCell className="font-medium">{order.id}</TableCell>
+                    <TableCell>{order.appUser.username}</TableCell>
+                    <TableCell>{order.appUser.email}</TableCell>
+                    <TableCell>
+                      {new Date(order.orderDate).toLocaleDateString()}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      ${order.totalAmount.toFixed(2)}
+                    </TableCell>
+                    <TableCell>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" className="h-8 w-8 p-0">
+                            <span className="sr-only">Open menu</span>
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            onClick={() => handleUpdateClick(order)}
+                          >
+                            Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            className="text-red-600 focus:text-red-600"
+                            onClick={() => handleDeleteClick(order.id)}
+                          >
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-4">
+                    {isSearching
+                      ? "No orders match your search criteria"
+                      : "No orders found"}
                   </TableCell>
                 </TableRow>
-              ))}
+              )}
             </TableBody>
           </Table>
         </div>
@@ -302,7 +451,9 @@ export default function Orders() {
                 >
                   Cancel
                 </Button>
-                <Button type="submit">Create Order</Button>
+                <Button type="submit" disabled={createMutation.isPending}>
+                  {createMutation.isPending ? "Creating..." : "Create Order"}
+                </Button>
               </DialogFooter>
             </form>
           </DialogContent>
@@ -330,6 +481,7 @@ export default function Orders() {
                     value={formData.orderDate}
                     onChange={handleInputChange}
                     className="col-span-3"
+                    required
                   />
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
@@ -339,9 +491,13 @@ export default function Orders() {
                   <Input
                     id="totalAmount"
                     name="totalAmount"
+                    type="number"
+                    step="0.01"
+                    min="0"
                     value={formData.totalAmount}
                     onChange={handleInputChange}
                     className="col-span-3"
+                    required
                   />
                 </div>
               </div>
@@ -353,39 +509,42 @@ export default function Orders() {
                 >
                   Cancel
                 </Button>
-                <Button type="submit">Save changes</Button>
+                <Button type="submit" disabled={updateMutation.isPending}>
+                  {updateMutation.isPending ? "Saving..." : "Save changes"}
+                </Button>
               </DialogFooter>
             </form>
           </DialogContent>
         </Dialog>
 
         {/* Delete Dialog */}
-        {isDeleteDialogOpen && (
-          <AlertDialog
-            open={isDeleteDialogOpen}
-            onOpenChange={setIsDeleteDialogOpen}
-          >
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>
-                  Are you sure you want to delete this order?
-                </AlertDialogTitle>
-                <AlertDialogDescription>
-                  This action cannot be undone. The order will be permanently
-                  removed.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel onClick={() => setIsDeleteDialogOpen(false)}>
-                  Cancel
-                </AlertDialogCancel>
-                <AlertDialogAction onClick={confirmDelete}>
-                  Delete
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        )}
+        <AlertDialog
+          open={isDeleteDialogOpen}
+          onOpenChange={setIsDeleteDialogOpen}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>
+                Are you sure you want to delete this order?
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                This action cannot be undone. The order will be permanently
+                removed.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => setIsDeleteDialogOpen(false)}>
+                Cancel
+              </AlertDialogCancel>
+              <AlertDialogAction
+                onClick={confirmDelete}
+                disabled={deleteMutation.isPending}
+              >
+                {deleteMutation.isPending ? "Deleting..." : "Delete"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </div>
   );

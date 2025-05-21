@@ -87,4 +87,12 @@ public class ProductServiceImpl implements ProductService {
         }
         productRepository.deleteById(id);
     }
+
+    @Override
+    public List<Product> searchProducts(String name, Long categoryId) {
+        return productRepository.searchProducts(
+                name != null ? name : "",
+                categoryId
+        );
+    }
 }

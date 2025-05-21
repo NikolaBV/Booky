@@ -1,7 +1,9 @@
 package booky.nikolabv.controller;
 
+import java.time.LocalDate;
 import java.util.List;
 
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -11,6 +13,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import booky.nikolabv.dto.PurchaseOrderDTO;
@@ -47,7 +50,7 @@ public class OrderController {
 
     @PutMapping("/{id}")
     public ResponseEntity<PurchaseOrder> updateOrder(
-            @PathVariable Long id, 
+            @PathVariable Long id,
             @RequestBody PurchaseOrderDTO orderDTO) {
         try {
             PurchaseOrder updatedOrder = purchaseOrderService.updateOrder(id, orderDTO);
@@ -65,5 +68,14 @@ public class OrderController {
         } catch (EntityNotFoundException e) {
             return ResponseEntity.notFound().build();
         }
+    }
+
+    @GetMapping("/search")
+    public ResponseEntity<List<PurchaseOrder>> searchOrders(
+            @RequestParam(required = false) String username,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
+        List<PurchaseOrder> orders = purchaseOrderService.searchOrders(username, startDate, endDate);
+        return ResponseEntity.ok(orders);
     }
 }

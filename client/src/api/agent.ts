@@ -9,7 +9,6 @@ import type {
   AuthResponse,
   LoginRequest,
   ProductDTO,
-  OrderItemDTO,
 } from "./models";
 
 axios.defaults.baseURL = import.meta.env.VITE_API_URL;
@@ -51,6 +50,14 @@ const orders = {
   list: () => {
     return requests.get<PurchaseOrder[]>("/orders");
   },
+  search: (username: string, startDate: Date | null, endDate: Date | null) => {
+    const params = new URLSearchParams();
+    if (username) params.append("username", username);
+    if (startDate) params.append("startDate", startDate.toISOString());
+    if (endDate) params.append("endDate", endDate.toISOString());
+
+    return requests.get<PurchaseOrder[]>(`/orders/search?${params.toString()}`);
+  },
   create: (order: PurchaseOrderDTO) => {
     return requests.post<PurchaseOrder>("/orders", order);
   },
@@ -61,16 +68,37 @@ const orders = {
 
 const categories = {
   list: () => requests.get<Category[]>("/category"),
-  details: (id: number) => requests.get<Category>(`/category/${id}`),
+  getById: (id: number) => requests.get<Category>(`/category/${id}`),
   create: (category: Category) =>
     requests.post<Category>("/category", category),
   update: (id: number, category: Category) =>
     requests.put<Category>(`/category/${id}`, category),
   delete: (id: number) => requests.delete(`/category/${id}`),
+  search: (searchTerm: string) =>
+    requests.get<Category[]>(
+      `/category/search?searchTerm=${encodeURIComponent(searchTerm || "")}`
+    ),
+  searchByName: (name: string) =>
+    requests.get<Category[]>(
+      `/category/search/name?name=${encodeURIComponent(name || "")}`
+    ),
+  searchByDescription: (description: string) =>
+    requests.get<Category[]>(
+      `category/search/description?description=${encodeURIComponent(
+        description || ""
+      )}`
+    ),
 };
 
 const products = {
   list: () => requests.get<Product[]>("/product"),
+  search: (name: string, categoryId: number | null) => {
+    const params = new URLSearchParams();
+    if (name) params.append("name", name);
+    if (categoryId) params.append("categoryId", categoryId.toString());
+
+    return requests.get<Product[]>(`/product/search?${params.toString()}`);
+  },
   details: (id: number) => requests.get<Product>(`/product/${id}`),
   create: (product: Partial<Product>) =>
     requests.post<Product>("/product", product),
@@ -86,9 +114,15 @@ const orderItems = {
     requests.get<OrderItem[]>(`/orderitem/order/${orderId}`),
   create: (orderItem: Partial<OrderItem>) =>
     requests.post<OrderItem>("/orderitem", orderItem),
-  update: (id: number, orderItem: OrderItemDTO) =>
+  update: (id: number, orderItem: Partial<OrderItem>) =>
     requests.put<OrderItem>(`/orderitem/${id}`, orderItem),
   delete: (id: number) => requests.delete(`/orderitem/${id}`),
+  search: (productName: string, orderId: number | null) => {
+    const params = new URLSearchParams();
+    if (productName) params.append("productName", productName);
+    if (orderId) params.append("orderId", orderId.toString());
+    return requests.get<OrderItem[]>(`/orderitem/search?${params.toString()}`);
+  },
 };
 
 const agent = {

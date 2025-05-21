@@ -19,4 +19,8 @@ public interface OrderItemService {
     OrderItem updateOrderItem(Long id, OrderItemDTO orderItemDTO);
 
     void deleteOrderItem(Long id);
+
+    List<OrderItem> searchOrderItems(String productName, Long orderId);
+
+    List<OrderItem> searchByProductName(String productName);
 }

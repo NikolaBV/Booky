@@ -43,7 +43,7 @@ public class CategoryServiceImpl implements CategoryService {
     @Transactional
     public Category updateCategory(Long id, CategoryDTO categoryDTO) {
         Category existingCategory = categoryRepository.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("Order not found with id: " + id));
+                .orElseThrow(() -> new EntityNotFoundException("Category not found with id: " + id));
         if (categoryDTO.getDescription() != null) {
             existingCategory.setDescription(categoryDTO.getDescription());
         }
@@ -61,4 +61,27 @@ public class CategoryServiceImpl implements CategoryService {
         categoryRepository.deleteById(id);
     }
 
+    @Override
+    public List<Category> searchByName(String name) {
+        if (name == null || name.trim().isEmpty()) {
+            return getAllCategories();
+        }
+        return categoryRepository.searchByNameContaining(name.trim());
+    }
+
+    @Override
+    public List<Category> searchByDescription(String description) {
+        if (description == null || description.trim().isEmpty()) {
+            return getAllCategories();
+        }
+        return categoryRepository.searchByDescriptionContaining(description.trim());
+    }
+
+    @Override
+    public List<Category> searchCategories(String searchTerm) {
+        if (searchTerm == null || searchTerm.trim().isEmpty()) {
+            return getAllCategories();
+        }
+        return categoryRepository.searchByNameOrDescriptionContaining(searchTerm.trim());
+    }
 }

@@ -1,12 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import agent from "../../api/agent";
-import type {
-  OrderItem,
-  PurchaseOrder,
-  Product,
-  OrderItemDTO,
-} from "../../api/models";
+import type { OrderItem, PurchaseOrder, Product } from "../../api/models";
 import {
   Table,
   TableBody,
@@ -35,7 +30,7 @@ import {
 } from "../../components/ui/dialog";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
-import { MoreHorizontal, PlusCircle } from "lucide-react";
+import { MoreHorizontal, PlusCircle, Search } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -46,6 +41,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "../../components/ui/alert-dialog";
+import { toast } from "sonner";
 import {
   Select,
   SelectContent,
@@ -70,6 +66,10 @@ export default function OrderItems() {
     null
   );
 
+  const [searchTerm, setSearchTerm] = useState("");
+  const [orderIdSearch, setOrderIdSearch] = useState<string>("");
+  const [isSearching, setIsSearching] = useState(false);
+
   const { data: orderItems = [], isLoading: orderItemsLoading } = useQuery({
     queryKey: ["orderItemsQuery"],
     queryFn: () => agent.orderItems.list(),
@@ -85,12 +85,29 @@ export default function OrderItems() {
     queryFn: () => agent.products.list(),
   });
 
+  const { data: searchResults = [], refetch: searchOrderItems } = useQuery({
+    queryKey: ["orderItemsSearchQuery"],
+    queryFn: () =>
+      agent.orderItems.search(
+        searchTerm,
+        orderIdSearch ? Number(orderIdSearch) : null
+      ),
+    enabled: false,
+  });
+
   const createMutation = useMutation({
     mutationFn: (orderItem: Partial<OrderItem>) =>
       agent.orderItems.create(orderItem),
     onSuccess: () => {
       setIsCreateDialogOpen(false);
       queryClient.invalidateQueries({ queryKey: ["orderItemsQuery"] });
+      if (isSearching) {
+        searchOrderItems();
+      }
+      toast.success("Order item created successfully");
+    },
+    onError: () => {
+      toast.error("Failed to create order item");
     },
   });
 
@@ -98,15 +115,29 @@ export default function OrderItems() {
     mutationFn: (orderItemId: number) => agent.orderItems.delete(orderItemId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["orderItemsQuery"] });
+      if (isSearching) {
+        searchOrderItems();
+      }
+      toast.success("Order item deleted successfully");
+    },
+    onError: () => {
+      toast.error("Failed to delete order item");
     },
   });
 
   const updateMutation = useMutation({
-    mutationFn: (data: { id: number; orderItem: OrderItemDTO }) =>
+    mutationFn: (data: { id: number; orderItem: Partial<OrderItem> }) =>
       agent.orderItems.update(data.id, data.orderItem),
     onSuccess: () => {
       setIsUpdateDialogOpen(false);
       queryClient.invalidateQueries({ queryKey: ["orderItemsQuery"] });
+      if (isSearching) {
+        searchOrderItems();
+      }
+      toast.success("Order item updated successfully");
+    },
+    onError: () => {
+      toast.error("Failed to update order item");
     },
   });
 
@@ -160,7 +191,7 @@ export default function OrderItems() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    const orderItemData: OrderItemDTO = {
+    const orderItemData = {
       orderId: formData.orderId,
       productId: formData.productId,
       quantity: formData.quantity,
@@ -187,6 +218,21 @@ export default function OrderItems() {
     }
   };
 
+  const handleSearch = () => {
+    if (!searchTerm.trim() && !orderIdSearch) {
+      toast.warning("Please enter a search term or order ID");
+      return;
+    }
+    setIsSearching(true);
+    searchOrderItems();
+  };
+
+  const handleClearSearch = () => {
+    setIsSearching(false);
+    setSearchTerm("");
+    setOrderIdSearch("");
+  };
+
   if (orderItemsLoading || ordersLoading || productsLoading) {
     return (
       <div className="flex justify-center items-center min-h-screen">
@@ -194,6 +240,8 @@ export default function OrderItems() {
       </div>
     );
   }
+
+  const displayedOrderItems = isSearching ? searchResults : orderItems;
 
   return (
     <div className="min-h-screen bg-background text-foreground p-6">
@@ -210,9 +258,49 @@ export default function OrderItems() {
           </Button>
         </div>
 
+        <div className="mb-6 p-4 border rounded-lg bg-card">
+          <h2 className="text-lg font-semibold mb-4">Search Order Items</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <Label htmlFor="product-search">Product Name</Label>
+              <Input
+                id="product-search"
+                placeholder="Search by product name..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+            <div>
+              <Label htmlFor="order-id-search">Order ID</Label>
+              <Input
+                id="order-id-search"
+                type="number"
+                placeholder="Search by order ID..."
+                value={orderIdSearch}
+                onChange={(e) => setOrderIdSearch(e.target.value)}
+              />
+            </div>
+            <div className="flex items-end gap-2">
+              <Button onClick={handleSearch} className="flex gap-2">
+                <Search className="h-4 w-4" />
+                Search
+              </Button>
+              {isSearching && (
+                <Button variant="outline" onClick={handleClearSearch}>
+                  Clear
+                </Button>
+              )}
+            </div>
+          </div>
+        </div>
+
         <div className="rounded-md border">
           <Table>
-            <TableCaption>A list of your order items.</TableCaption>
+            <TableCaption>
+              {isSearching
+                ? `Showing ${searchResults.length} search results`
+                : "A list of your order items"}
+            </TableCaption>
             <TableHeader>
               <TableRow>
                 <TableHead>ID</TableHead>
@@ -225,51 +313,64 @@ export default function OrderItems() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {orderItems.map((orderItem: OrderItem) => (
-                <TableRow key={orderItem.id}>
-                  <TableCell className="font-medium">{orderItem.id}</TableCell>
-                  <TableCell>#{orderItem.order.id}</TableCell>
-                  <TableCell>{orderItem.product.name}</TableCell>
-                  <TableCell>{orderItem.quantity}</TableCell>
-                  <TableCell>${orderItem.priceAtPurchase.toFixed(2)}</TableCell>
-                  <TableCell>
-                    $
-                    {(orderItem.quantity * orderItem.priceAtPurchase).toFixed(
-                      2
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" className="h-8 w-8 p-0">
-                          <span className="sr-only">Open menu</span>
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          onClick={() => handleUpdateClick(orderItem)}
-                        >
-                          Edit
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          className="text-red-600 focus:text-red-600"
-                          onClick={() => handleDeleteClick(orderItem.id)}
-                        >
-                          Delete
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+              {displayedOrderItems.length > 0 ? (
+                displayedOrderItems.map((orderItem: OrderItem) => (
+                  <TableRow key={orderItem.id}>
+                    <TableCell className="font-medium">
+                      {orderItem.id}
+                    </TableCell>
+                    <TableCell>#{orderItem.order.id}</TableCell>
+                    <TableCell>{orderItem.product.name}</TableCell>
+                    <TableCell>{orderItem.quantity}</TableCell>
+                    <TableCell>
+                      ${orderItem.priceAtPurchase.toFixed(2)}
+                    </TableCell>
+                    <TableCell>
+                      $
+                      {(orderItem.quantity * orderItem.priceAtPurchase).toFixed(
+                        2
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" className="h-8 w-8 p-0">
+                            <span className="sr-only">Open menu</span>
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            onClick={() => handleUpdateClick(orderItem)}
+                          >
+                            Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            className="text-red-600 focus:text-red-600"
+                            onClick={() => handleDeleteClick(orderItem.id)}
+                          >
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center py-4">
+                    {isSearching
+                      ? "No order items match your search criteria"
+                      : "No order items found"}
                   </TableCell>
                 </TableRow>
-              ))}
+              )}
             </TableBody>
           </Table>
         </div>
 
-        {/* Create Dialog */}
         <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
@@ -366,13 +467,14 @@ export default function OrderItems() {
                 >
                   Cancel
                 </Button>
-                <Button type="submit">Create</Button>
+                <Button type="submit" disabled={createMutation.isPending}>
+                  {createMutation.isPending ? "Creating..." : "Create"}
+                </Button>
               </DialogFooter>
             </form>
           </DialogContent>
         </Dialog>
 
-        {/* Update Dialog */}
         <Dialog open={isUpdateDialogOpen} onOpenChange={setIsUpdateDialogOpen}>
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
@@ -471,13 +573,14 @@ export default function OrderItems() {
                 >
                   Cancel
                 </Button>
-                <Button type="submit">Save changes</Button>
+                <Button type="submit" disabled={updateMutation.isPending}>
+                  {updateMutation.isPending ? "Saving..." : "Save changes"}
+                </Button>
               </DialogFooter>
             </form>
           </DialogContent>
         </Dialog>
 
-        {/* Delete Dialog */}
         <AlertDialog
           open={isDeleteDialogOpen}
           onOpenChange={setIsDeleteDialogOpen}
@@ -496,8 +599,11 @@ export default function OrderItems() {
               <AlertDialogCancel onClick={() => setIsDeleteDialogOpen(false)}>
                 Cancel
               </AlertDialogCancel>
-              <AlertDialogAction onClick={confirmDelete}>
-                Delete
+              <AlertDialogAction
+                onClick={confirmDelete}
+                disabled={deleteMutation.isPending}
+              >
+                {deleteMutation.isPending ? "Deleting..." : "Delete"}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>

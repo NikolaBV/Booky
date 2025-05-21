@@ -30,7 +30,7 @@ import {
 } from "../../components/ui/dialog";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
-import { MoreHorizontal, PlusCircle } from "lucide-react";
+import { MoreHorizontal, PlusCircle, Search } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -48,6 +48,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../../components/ui/select";
+import { toast } from "sonner";
 
 export default function Products() {
   const queryClient = useQueryClient();
@@ -64,6 +65,14 @@ export default function Products() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [productToDelete, setProductToDelete] = useState<number | null>(null);
 
+  // Search state
+  const [searchParams, setSearchParams] = useState({
+    name: "",
+    categoryId: "",
+  });
+  const [isSearching, setIsSearching] = useState(false);
+
+  // Regular query for all products
   const { data: products = [], isLoading: productsLoading } = useQuery({
     queryKey: ["productsQuery"],
     queryFn: () => agent.products.list(),
@@ -74,11 +83,29 @@ export default function Products() {
     queryFn: () => agent.categories.list(),
   });
 
+  // Search query
+  const { data: searchResults = [], refetch: searchProducts } = useQuery({
+    queryKey: ["productsSearchQuery"],
+    queryFn: () =>
+      agent.products.search(
+        searchParams.name,
+        searchParams.categoryId ? parseInt(searchParams.categoryId) : null
+      ),
+    enabled: false, // Disable automatic running
+  });
+
   const createMutation = useMutation({
     mutationFn: (product: Partial<Product>) => agent.products.create(product),
     onSuccess: () => {
       setIsCreateDialogOpen(false);
       queryClient.invalidateQueries({ queryKey: ["productsQuery"] });
+      if (isSearching) {
+        searchProducts();
+      }
+      toast.success("Product created successfully");
+    },
+    onError: () => {
+      toast.error("Failed to create product");
     },
   });
 
@@ -86,6 +113,13 @@ export default function Products() {
     mutationFn: (productId: number) => agent.products.delete(productId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["productsQuery"] });
+      if (isSearching) {
+        searchProducts();
+      }
+      toast.success("Product deleted successfully");
+    },
+    onError: () => {
+      toast.error("Failed to delete product");
     },
   });
 
@@ -95,8 +129,16 @@ export default function Products() {
     onSuccess: () => {
       setIsUpdateDialogOpen(false);
       queryClient.invalidateQueries({ queryKey: ["productsQuery"] });
+      if (isSearching) {
+        searchProducts();
+      }
+      toast.success("Product updated successfully");
+    },
+    onError: () => {
+      toast.error("Failed to update product");
     },
   });
+
   const handleCreateClick = () => {
     setFormData({
       id: 0,
@@ -136,6 +178,13 @@ export default function Products() {
     });
   };
 
+  const handleSearchSelectChange = (value: string) => {
+    setSearchParams({
+      ...searchParams,
+      categoryId: value,
+    });
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -167,6 +216,23 @@ export default function Products() {
     }
   };
 
+  const handleSearch = () => {
+    if (!searchParams.name && !searchParams.categoryId) {
+      toast.warning("Please enter at least one search criteria");
+      return;
+    }
+    setIsSearching(true);
+    searchProducts();
+  };
+
+  const handleClearSearch = () => {
+    setIsSearching(false);
+    setSearchParams({
+      name: "",
+      categoryId: "",
+    });
+  };
+
   if (productsLoading || categoriesLoading) {
     return (
       <div className="flex justify-center items-center min-h-screen">
@@ -174,6 +240,8 @@ export default function Products() {
       </div>
     );
   }
+
+  const displayedProducts = isSearching ? searchResults : products;
 
   return (
     <div className="min-h-screen bg-background text-foreground p-6">
@@ -190,9 +258,67 @@ export default function Products() {
           </Button>
         </div>
 
+        {/* Search Section */}
+        <div className="mb-6 p-4 border rounded-lg bg-card">
+          <h2 className="text-lg font-semibold mb-4">Search Products</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <Label htmlFor="search-name">Product Name</Label>
+              <Input
+                id="search-name"
+                placeholder="Search by name..."
+                value={searchParams.name}
+                onChange={(e) =>
+                  setSearchParams({
+                    ...searchParams,
+                    name: e.target.value,
+                  })
+                }
+              />
+            </div>
+            <div>
+              <Label htmlFor="search-category">Category</Label>
+              <Select
+                value={searchParams.categoryId}
+                onValueChange={handleSearchSelectChange}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a category" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Categories</SelectItem>
+                  {categories.map((category: Category) => (
+                    <SelectItem
+                      key={category.id}
+                      value={category.id.toString()}
+                    >
+                      {category.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-end gap-2">
+              <Button onClick={handleSearch} className="flex gap-2">
+                <Search className="h-4 w-4" />
+                Search
+              </Button>
+              {isSearching && (
+                <Button variant="outline" onClick={handleClearSearch}>
+                  Clear
+                </Button>
+              )}
+            </div>
+          </div>
+        </div>
+
         <div className="rounded-md border">
           <Table>
-            <TableCaption>A list of your products.</TableCaption>
+            <TableCaption>
+              {isSearching
+                ? `Showing ${searchResults.length} search results`
+                : "A list of your products"}
+            </TableCaption>
             <TableHeader>
               <TableRow>
                 <TableHead>ID</TableHead>
@@ -204,40 +330,50 @@ export default function Products() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {products.map((product: Product) => (
-                <TableRow key={product.id}>
-                  <TableCell className="font-medium">{product.id}</TableCell>
-                  <TableCell>{product.name}</TableCell>
-                  <TableCell>{product.category.name}</TableCell>
-                  <TableCell>${product.price.toFixed(2)}</TableCell>
-                  <TableCell>{product.stockQuantity || 0}</TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" className="h-8 w-8 p-0">
-                          <span className="sr-only">Open menu</span>
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          onClick={() => handleUpdateClick(product)}
-                        >
-                          Edit
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          className="text-red-600 focus:text-red-600"
-                          onClick={() => handleDeleteClick(product.id)}
-                        >
-                          Delete
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+              {displayedProducts.length > 0 ? (
+                displayedProducts.map((product: Product) => (
+                  <TableRow key={product.id}>
+                    <TableCell className="font-medium">{product.id}</TableCell>
+                    <TableCell>{product.name}</TableCell>
+                    <TableCell>{product.category.name}</TableCell>
+                    <TableCell>${product.price.toFixed(2)}</TableCell>
+                    <TableCell>{product.stockQuantity || 0}</TableCell>
+                    <TableCell>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" className="h-8 w-8 p-0">
+                            <span className="sr-only">Open menu</span>
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            onClick={() => handleUpdateClick(product)}
+                          >
+                            Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            className="text-red-600 focus:text-red-600"
+                            onClick={() => handleDeleteClick(product.id)}
+                          >
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-4">
+                    {isSearching
+                      ? "No products match your search criteria"
+                      : "No products found"}
                   </TableCell>
                 </TableRow>
-              ))}
+              )}
             </TableBody>
           </Table>
         </div>
@@ -340,7 +476,9 @@ export default function Products() {
                 >
                   Cancel
                 </Button>
-                <Button type="submit">Create</Button>
+                <Button type="submit" disabled={createMutation.isPending}>
+                  {createMutation.isPending ? "Creating..." : "Create"}
+                </Button>
               </DialogFooter>
             </form>
           </DialogContent>
@@ -445,7 +583,9 @@ export default function Products() {
                 >
                   Cancel
                 </Button>
-                <Button type="submit">Save changes</Button>
+                <Button type="submit" disabled={updateMutation.isPending}>
+                  {updateMutation.isPending ? "Saving..." : "Save changes"}
+                </Button>
               </DialogFooter>
             </form>
           </DialogContent>
@@ -470,8 +610,11 @@ export default function Products() {
               <AlertDialogCancel onClick={() => setIsDeleteDialogOpen(false)}>
                 Cancel
               </AlertDialogCancel>
-              <AlertDialogAction onClick={confirmDelete}>
-                Delete
+              <AlertDialogAction
+                onClick={confirmDelete}
+                disabled={deleteMutation.isPending}
+              >
+                {deleteMutation.isPending ? "Deleting..." : "Delete"}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>

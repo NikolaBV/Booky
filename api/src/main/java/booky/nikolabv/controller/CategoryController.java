@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import booky.nikolabv.dto.CategoryDTO;
@@ -62,5 +63,26 @@ public class CategoryController {
         } catch (jakarta.persistence.EntityNotFoundException e) {
             return ResponseEntity.notFound().build();
         }
+    }
+
+    @GetMapping("/search")
+    public ResponseEntity<List<Category>> searchCategories(
+            @RequestParam(required = false) String searchTerm) {
+        List<Category> categories = categoryService.searchCategories(searchTerm);
+        return ResponseEntity.ok(categories);
+    }
+
+    @GetMapping("/search/name")
+    public ResponseEntity<List<Category>> searchByName(
+            @RequestParam String name) {
+        List<Category> categories = categoryService.searchByName(name);
+        return ResponseEntity.ok(categories);
+    }
+
+    @GetMapping("/search/description")
+    public ResponseEntity<List<Category>> searchByDescription(
+            @RequestParam String description) {
+        List<Category> categories = categoryService.searchByDescription(description);
+        return ResponseEntity.ok(categories);
     }
 }

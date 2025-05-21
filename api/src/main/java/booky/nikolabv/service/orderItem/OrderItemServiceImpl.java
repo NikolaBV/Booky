@@ -33,7 +33,6 @@ public class OrderItemServiceImpl implements OrderItemService {
         Product product = productRepository.findById(orderItemDTO.getProductId())
                 .orElseThrow(() -> new EntityNotFoundException("Product not found with id: " + orderItemDTO.getProductId()));
 
-        // If priceAtPurchase is not provided, use the current product price
         Double priceAtPurchase = orderItemDTO.getPriceAtPurchase() != null
                 ? orderItemDTO.getPriceAtPurchase()
                 : product.getPrice();
@@ -55,9 +54,7 @@ public class OrderItemServiceImpl implements OrderItemService {
 
     @Override
     public List<OrderItem> getOrderItemsByOrder(Long orderId) {
-        PurchaseOrder order = purchaseOrderRepository.findById(orderId)
-                .orElseThrow(() -> new EntityNotFoundException("Order not found with id: " + orderId));
-        return orderItemRepository.findByOrder(order);
+        return orderItemRepository.findByOrderId(orderId);
     }
 
     @Override
@@ -101,5 +98,31 @@ public class OrderItemServiceImpl implements OrderItemService {
             throw new EntityNotFoundException("OrderItem not found with id: " + id);
         }
         orderItemRepository.deleteById(id);
+    }
+
+    @Override
+    public List<OrderItem> searchOrderItems(String productName, Long orderId) {
+        if (productName != null && !productName.trim().isEmpty() && orderId != null) {
+            return orderItemRepository.searchByOrderIdAndProductNameContaining(orderId, productName.trim());
+        }
+
+        if (productName != null && !productName.trim().isEmpty()) {
+            return orderItemRepository.searchByProductNameContaining(productName.trim());
+        }
+
+        if (orderId != null) {
+            return orderItemRepository.findByOrderId(orderId);
+        }
+
+        return getAllOrderItems();
+    }
+
+    @Override
+    public List<OrderItem> searchByProductName(String productName) {
+        if (productName == null || productName.trim().isEmpty()) {
+            return getAllOrderItems();
+        }
+
+        return orderItemRepository.searchByProductNameContaining(productName.trim());
     }
 }

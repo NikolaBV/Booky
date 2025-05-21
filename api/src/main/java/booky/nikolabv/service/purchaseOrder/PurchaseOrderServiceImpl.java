@@ -1,5 +1,6 @@
 package booky.nikolabv.service.purchaseOrder;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
@@ -75,5 +76,14 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
             throw new EntityNotFoundException("Order not found with id: " + id);
         }
         purchaseOrderRepository.deleteById(id);
+    }
+
+    @Override
+    public List<PurchaseOrder> searchOrders(String username, LocalDate startDate, LocalDate endDate) {
+        return purchaseOrderRepository.searchOrders(
+                username,
+                startDate != null ? startDate : LocalDate.of(1970, 1, 1),
+                endDate != null ? endDate : LocalDate.now()
+        );
     }
 }

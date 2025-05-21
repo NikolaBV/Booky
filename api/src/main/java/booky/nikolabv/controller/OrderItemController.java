@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import booky.nikolabv.dto.OrderItemDTO;
@@ -68,5 +69,20 @@ public class OrderItemController {
         } catch (jakarta.persistence.EntityNotFoundException e) {
             return ResponseEntity.notFound().build();
         }
+    }
+
+    @GetMapping("/search")
+    public ResponseEntity<List<OrderItem>> searchOrderItems(
+            @RequestParam(required = false) String productName,
+            @RequestParam(required = false) Long orderId) {
+        List<OrderItem> orderItems = orderItemService.searchOrderItems(productName, orderId);
+        return ResponseEntity.ok(orderItems);
+    }
+
+    @GetMapping("/search/product")
+    public ResponseEntity<List<OrderItem>> searchByProductName(
+            @RequestParam String productName) {
+        List<OrderItem> orderItems = orderItemService.searchByProductName(productName);
+        return ResponseEntity.ok(orderItems);
     }
 }
